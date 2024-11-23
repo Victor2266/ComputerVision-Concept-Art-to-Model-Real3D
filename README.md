@@ -1,6 +1,6 @@
 <div align="center">
-
-# Real3D: Scaling Up Large Reconstruction Models with Real-World Images
+    
+# This Repo is based on Real3D: Scaling Up Large Reconstruction Models with Real-World Images
 
 
 <p align="center">
@@ -39,7 +39,15 @@ conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=
 pip install -r requirements.txt 
 ```
 
-Then, download the [model weight](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) and put it to `./checkpoints/model_both_trained_v1.ckpt`.
+
+Then, download the a model weight:
+
+- [model weight from TripoSR](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+- [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
+- [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
+- [Our Model Weight Fine Tuned on Fantasy Sword Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+
+and put it into `./checkpoint/<model_name>.ckpt`.
 
 
 ## Demo
@@ -67,7 +75,7 @@ For example, to evaluate on CO3D with ground-truth multiviews, use `eval_mv.py` 
 
 
 ## Acknowledgement
-This repo is developed based on [TripoSR](https://github.com/VAST-AI-Research/TripoSR/).
+This repo is developed based on [TripoSR](https://github.com/VAST-AI-Research/TripoSR/) and [Real3D](https://github.com/hwjiang1510/Real3D/tree/main?tab=readme-ov-file)
 
 
 ## BibTex
