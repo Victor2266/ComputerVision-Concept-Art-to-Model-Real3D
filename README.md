@@ -62,11 +62,11 @@ To change the model it uses, you have to edit this cell in the note book to chan
 ## Run The Demo:
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
 
-### **If you want to modify the parameters for run.py these are the Script Parameters and Their Functions**
-- `image`:
-  - **Type**: `str`
-  - **Description**: Path(s) to the input image(s). You can specify one or more image files.
-  - **Example**: `example.png` or `images/*.png`
+**To Fix “permission denied” error:**
+`Use chmod +x run.sh` to add the “x” permission.
+
+### **If you want to modify the parameters for run.py:**
+
 #### **Device Configuration**
 - `--device`:
   - **Type**: `str`
