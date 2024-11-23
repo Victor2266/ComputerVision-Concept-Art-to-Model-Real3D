@@ -71,10 +71,6 @@ Use `./eval.sh` and modify the script and config accordingly.
 For example, to evaluate on CO3D with ground-truth multiviews, use `eval_mv.py` and `./config/eval/eval_mv_co3d.yaml`. To evaluate on single-view images, use `eval_sv.py` and `./config/eval/eval_sv.yaml`.
 
 
-## TODO
-- [ ] Release real-world data.
-
-
 ## Acknowledgements:
 This repo is developed based on [TripoSR](https://github.com/VAST-AI-Research/TripoSR/) and [Real3D](https://github.com/hwjiang1510/Real3D/tree/main?tab=readme-ov-file)
 
