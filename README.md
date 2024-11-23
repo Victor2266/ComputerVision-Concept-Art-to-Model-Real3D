@@ -32,13 +32,29 @@
 
 First, setup the environment.
 ```
-conda create --name real3d python=3.8
+# You need to set up WSL and Conda (INSIDE WSL) first.
+
+#After that do this:
+conda create --name real3d python=3.9
 conda activate real3d
 
 # Install pytorch, we use:
 conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=11.8 -c pytorch -c nvidia
 
-pip install -r requirements.txt 
+git clone https://github.com/hwjiang1510/Real3D.git
+cd real3d
+
+pip install -r requirements.txt
+
+# I had to run this to update some of the versions 
+conda install pytorch torchvision torchaudio pytorch-cuda=11.8 -c pytorch -c nvidia
+
+# I had to reinstall torchmcubes
+pip uninstall torchmcubes
+pip install git+https://github.com/tatsy/torchmcubes.git
+
+# Install other dependencies < probably don't need to do this
+pip install rembg pillow numpy
 ```
 
 ### (Google Colab Option)
