@@ -40,6 +40,11 @@ pip install rembg pillow numpy
 ### (Google Colab Option)
 Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive/1sFt2UtVDTU171ZtouI5CUZ4gyRcVkvuV?usp=sharing) (Keep in mind that you only have a few hours of compute in the free version.)
 
+Then run each cell in order to set up the environment.
+
+There is a cell which downloads [REAL3D's MODEL, CHANGE IT LATER TO OURS] by default.
+
+
 ## After Setting up The Environment:
 ### (Local Option)
 Download the a model weight:
