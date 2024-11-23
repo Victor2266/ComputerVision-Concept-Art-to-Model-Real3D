@@ -1,20 +1,21 @@
 import pathlib
 
 import requests
+from fake_http_header import FakeHttpHeader
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from webdriver_manager.chrome import ChromeDriverManager
 
-DOWNLOAD_PATH = pathlib.Path("google_dataset")
+DOWNLOAD_PATH = pathlib.Path(__file__).parent / "google_dataset"
 
 SCRAPE_URL = "https://images.google.com"
 THUMBNAIL_CLASS = "YQ4gaf"
 IMAGE_CLASS = "sFlh5c.FyHeAf.iPVvYb"
 
 SEARCH_TERM = "weapons"
-NUM_IMAGES = 5
+NUM_IMAGES = 1000
 
 
 def setup_driver():
@@ -61,7 +62,9 @@ def download_image(img_url, file_name):
         if not DOWNLOAD_PATH.is_dir():
             DOWNLOAD_PATH.mkdir()
 
-        response = requests.get(img_url, stream=True)
+        # this gets around some sites anti scraper detection
+        fake_header = FakeHttpHeader().as_header_dict()
+        response = requests.get(img_url, headers=fake_header, stream=True)
         response.raise_for_status()
 
         with open(DOWNLOAD_PATH / file_name, "wb") as file:

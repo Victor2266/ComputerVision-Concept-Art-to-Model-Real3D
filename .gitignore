@@ -174,3 +174,5 @@ outputs/
 /process_co3d
 /dataset/preprocess/
 /dataset/split_info/mvimgnet_mv_center_info/
+
+google_dataset/
