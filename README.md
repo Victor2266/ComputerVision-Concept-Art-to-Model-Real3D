@@ -56,7 +56,7 @@ Download the a model weight:
 and put it into `./checkpoint/<model_name>.ckpt`.
 
 ### (Google Collab Option)
-You have to edit this cell in the note book to change the url to the model you want:
+To change the model it uses, you have to edit this cell in the note book to change the url to the model you want:
 ![image](https://github.com/user-attachments/assets/11f2a66c-e76e-431e-bb7d-8ed2f42cfaad)
 
 ## Run The Demo:
