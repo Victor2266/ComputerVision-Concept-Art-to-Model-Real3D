@@ -28,7 +28,9 @@
 
 
 ## Installation
-First, install the environment.
+### (Local Option)
+
+First, setup the environment.
 ```
 conda create --name real3d python=3.8
 conda activate real3d
@@ -39,6 +41,8 @@ conda install pytorch==2.1.0 torchvision==0.16.0 torchaudio==2.1.0 pytorch-cuda=
 pip install -r requirements.txt 
 ```
 
+### (Google Colab Option)
+Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive/1sFt2UtVDTU171ZtouI5CUZ4gyRcVkvuV?usp=sharing) (Keep in mind that you only have a few hours of compute in the free version.)
 
 Then, download the a model weight:
 
