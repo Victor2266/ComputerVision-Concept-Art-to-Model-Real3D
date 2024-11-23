@@ -41,8 +41,8 @@ pip install rembg pillow numpy
 Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive/1sFt2UtVDTU171ZtouI5CUZ4gyRcVkvuV?usp=sharing) (Keep in mind that you only have a few hours of compute in the free version.)
 
 ## After Setting up The Environment:
+### (Local Option)
 Download the a model weight:
-
 - [model weight from TripoSR](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
 - [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
 - [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
@@ -50,6 +50,9 @@ Download the a model weight:
 
 and put it into `./checkpoint/<model_name>.ckpt`.
 
+### (Google Collab Option)
+You have to edit this cell in the note book to change the url to the model you want:
+![image](https://github.com/user-attachments/assets/11f2a66c-e76e-431e-bb7d-8ed2f42cfaad)
 
 ## Run The Demo:
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
