@@ -43,7 +43,7 @@ Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive
 ## After Setting up The Environment:
 ### (Local Option)
 Download the a model weight:
-- [model weight from TripoSR](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+- [model weight from TripoSR](https://huggingface.co/stabilityai/TripoSR/resolve/main/model.ckpt?download=true)
 - [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
 - [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
 - [Our Model Weight Fine Tuned on Fantasy Sword Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
