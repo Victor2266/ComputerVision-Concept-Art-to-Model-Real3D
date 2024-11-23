@@ -8,7 +8,8 @@ import rembg
 import torch
 from PIL import Image
 
-from tsr.optimized_system import OptimizedTSR
+from tsr.system import TSR
+
 from tsr.utils import remove_background, resize_foreground, save_video
 
 
@@ -37,10 +38,10 @@ class Timer:
 
 timer = Timer()
 
+
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s", level=logging.INFO
 )
-
 parser = argparse.ArgumentParser()
 parser.add_argument("image", type=str, nargs="+", help="Path to input image(s).")
 parser.add_argument(
@@ -51,15 +52,15 @@ parser.add_argument(
 )
 parser.add_argument(
     "--pretrained-model-name-or-path",
-    default="./checkpoint",
+    default="./checkpoint", #"stabilityai/TripoSR",
     type=str,
-    help="Path to the pretrained model. Could be either a huggingface model id or a local path. Default: './checkpoint'",
+    help="Path to the pretrained model. Could be either a huggingface model id is or a local path. Default: 'stabilityai/TripoSR'",
 )
 parser.add_argument(
     "--chunk-size",
-    default=8192,
+    default=8192, #8192,
     type=int,
-    help="Evaluation chunk size for surface extraction and rendering. Smaller chunk size reduces VRAM usage but increases computation time. Default: 8192",
+    help="Evaluation chunk size for surface extraction and rendering. Smaller chunk size reduces VRAM usage but increases computation time. 0 for no chunking. Default: 8192",
 )
 parser.add_argument(
     "--mc-resolution",
@@ -70,19 +71,19 @@ parser.add_argument(
 parser.add_argument(
     "--no-remove-bg",
     action="store_true",
-    help="If specified, the background will NOT be automatically removed from the input image. Default: false",
+    help="If specified, the background will NOT be automatically removed from the input image, and the input image should be an RGB image with gray background and properly-sized foreground. Default: false",
 )
 parser.add_argument(
     "--foreground-ratio",
     default=0.65,
     type=float,
-    help="Ratio of the foreground size to the image size. Only used when --no-remove-bg is not specified. Default: 0.65",
+    help="Ratio of the foreground size to the image size. Only used when --no-remove-bg is not specified. Default: 0.85",
 )
 parser.add_argument(
     "--output-dir",
     default="output_demo/",
     type=str,
-    help="Output directory to save the results. Default: 'output_demo/'",
+    help="Output directory to save the results. Default: 'output/'",
 )
 parser.add_argument(
     "--model-save-format",
@@ -104,30 +105,23 @@ parser.add_argument(
 )
 args = parser.parse_args()
 
-# Create output directory
 output_dir = args.output_dir
 os.makedirs(output_dir, exist_ok=True)
 
-# Set device
 device = args.device
-if not torch.cuda.is_available() and 'cuda' in device:
-    logging.warning("CUDA device requested but no CUDA device found. Falling back to CPU.")
+if not torch.cuda.is_available():
     device = "cpu"
 
 timer.start("Initializing model")
-model = OptimizedTSR.from_pretrained(
+model = TSR.from_pretrained(
     args.pretrained_model_name_or_path,
     config_name="config.yaml",
     weight_name="model_both_trained_v1.ckpt",
 )
-# Set chunk size before moving to device and converting to half precision
 model.renderer.set_chunk_size(args.chunk_size)
-model = model.to(device)
-if model.use_half_precision:
-    model = model.to_half()
+model.to(device)
 timer.end("Initializing model")
 
-# Process images
 timer.start("Processing images")
 images = []
 
@@ -138,34 +132,33 @@ else:
 
 for i, image_path in enumerate(args.image):
     if args.no_remove_bg:
+        print('no remove bg')
         image = np.array(Image.open(image_path)) / 255.0
         image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
         image = Image.fromarray((image * 255.0).astype(np.uint8))
+        if not os.path.exists(os.path.join(output_dir, str(i))):
+            os.makedirs(os.path.join(output_dir, str(i)))
+        image.save(os.path.join(output_dir, str(i), f"input.png"))
     else:
         image = remove_background(Image.open(image_path), rembg_session)
         image = resize_foreground(image, args.foreground_ratio)
         image = np.array(image).astype(np.float32) / 255.0
         image = image[:, :, :3] * image[:, :, 3:4] + (1 - image[:, :, 3:4]) * 0.5
         image = Image.fromarray((image * 255.0).astype(np.uint8))
-    
-    # Create output subdirectory for this image
-    img_output_dir = os.path.join(output_dir, str(i))
-    os.makedirs(img_output_dir, exist_ok=True)
-    image.save(os.path.join(img_output_dir, "input.png"))
+        if not os.path.exists(os.path.join(output_dir, str(i))):
+            os.makedirs(os.path.join(output_dir, str(i)))
+        image.save(os.path.join(output_dir, str(i), f"input.png"))
     images.append(image)
 timer.end("Processing images")
 
-# Process each image
 for i, image in enumerate(images):
     logging.info(f"Running image {i + 1}/{len(images)} ...")
 
-    # Generate latent codes
     timer.start("Running model")
     with torch.no_grad():
         scene_codes = model.get_latent_from_img([image], device=device)
     timer.end("Running model")
 
-    # Render if requested
     if args.render:
         timer.start("Rendering")
         render_images = model.render_360(scene_codes, n_views=args.render_num_views, return_type="pil")
@@ -176,10 +169,8 @@ for i, image in enumerate(images):
         )
         timer.end("Rendering")
 
-    # Extract and save mesh
     timer.start("Exporting mesh")
     meshes = model.extract_mesh(scene_codes, resolution=args.mc_resolution)
     meshes[0].export(os.path.join(output_dir, str(i), f"mesh.{args.model_save_format}"))
     timer.end("Exporting mesh")
-
-logging.info("Processing completed!")
+    

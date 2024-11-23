@@ -1,6 +1,5 @@
 import math
 import os
-import functools
 from dataclasses import dataclass, field
 from typing import List, Union
 
@@ -25,151 +24,162 @@ from .utils import (
     get_ray_directions
 )
 
-class OptimizedTSR(BaseModule):
+
+class TSR(BaseModule):
     @dataclass
     class Config(BaseModule.Config):
         cond_image_size: int
+
         image_tokenizer_cls: str
         image_tokenizer: dict
+
         tokenizer_cls: str
         tokenizer: dict
+
         backbone_cls: str
         backbone: dict
+
         post_processor_cls: str
         post_processor: dict
+
         decoder_cls: str
         decoder: dict
+
         renderer_cls: str
         renderer: dict
-        use_half_precision: bool = True
-        ray_chunk_size: int = 8192
-        batch_size: int = 4
 
     cfg: Config
 
-    def __init__(self, cfg):
-        super().__init__(cfg)
-        # Enable CUDA optimization
-        torch.backends.cudnn.benchmark = True
-        self.token_cache = {}
-
     @classmethod
-    def from_pretrained(cls, pretrained_model_name_or_path: str, config_name: str, weight_name: str, device: str = "cuda"):
+    def from_pretrained(
+        cls, pretrained_model_name_or_path: str, config_name: str, weight_name: str
+    ):
         if os.path.isdir(pretrained_model_name_or_path):
             config_path = os.path.join(pretrained_model_name_or_path, config_name)
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
             use_saved_ckpt = True
         else:
-            config_path = hf_hub_download(repo_id=pretrained_model_name_or_path, filename=config_name)
-            weight_path = hf_hub_download(repo_id=pretrained_model_name_or_path, filename=weight_name)
+            config_path = hf_hub_download(
+                repo_id=pretrained_model_name_or_path, filename=config_name
+            )
+            weight_path = hf_hub_download(
+                repo_id=pretrained_model_name_or_path, filename=weight_name
+            )
             use_saved_ckpt = False
 
         cfg = OmegaConf.load(config_path)
         OmegaConf.resolve(cfg)
         model = cls(cfg)
-        
-        # Load weights and move to specified device
+        # Load the weights from the checkpoint, this is done on the CPU to avoid
+        # running out of GPU memory.
         ckpt = torch.load(weight_path, map_location="cpu")
         if use_saved_ckpt:
             if "module" in list(ckpt["state_dict"].keys())[0]:
                 ckpt = {key.replace('module.',''): item for key, item in ckpt["state_dict"].items()}
             else:
                 ckpt = ckpt["state_dict"]
-        
         model.load_state_dict(ckpt)
-        model = model.to(device)
-        
-        # Convert to half precision if configured
-        if cfg.use_half_precision:
-            model = model.half()
-            
         return model
 
     def configure(self):
-        super().configure()
-        # JIT compile the decoder for faster inference
-        self.decoder = torch.jit.script(self.decoder)
-        
-    @functools.lru_cache(maxsize=32)
-    def _cached_tokenize_image(self, image_hash):
-        """Cache tokenization results for repeated images"""
-        return self.image_tokenizer(image_hash)
+        self.image_tokenizer = find_class(self.cfg.image_tokenizer_cls)(
+            self.cfg.image_tokenizer
+        )
+        self.tokenizer = find_class(self.cfg.tokenizer_cls)(self.cfg.tokenizer)
+        self.backbone = find_class(self.cfg.backbone_cls)(self.cfg.backbone)
+        self.post_processor = find_class(self.cfg.post_processor_cls)(
+            self.cfg.post_processor
+        )
+        self.decoder = find_class(self.cfg.decoder_cls)(self.cfg.decoder)
+        self.renderer = find_class(self.cfg.renderer_cls)(self.cfg.renderer)
+        self.image_processor = ImagePreprocessor()
+        self.isosurface_helper = None
 
-    @torch.inference_mode()
-    def forward(self, inputs: torch.FloatTensor, rays_o: torch.FloatTensor, rays_d: torch.FloatTensor):
-        """Optimized forward pass using inference mode"""
-        if self.cfg.use_half_precision:
-            inputs = inputs.half()
-            rays_o = rays_o.half()
-            rays_d = rays_d.half()
 
+    def forward(self, 
+                inputs: torch.FloatTensor, 
+                rays_o: torch.FloatTensor,
+                rays_d: torch.FloatTensor,
+                ):
+        # input images in shape [b,1,c,h,w], value range [0,1]
+        # rays_o and rays_d in shape [b,Nv,h,w,3]
         batch_size, n_views = rays_o.shape[:2]
-        
-        # Process image tokens with caching
-        input_hash = hash(inputs.cpu().numpy().tobytes())
-        if input_hash in self.token_cache:
-            input_image_tokens = self.token_cache[input_hash]
-        else:
-            input_image_tokens = self.image_tokenizer(inputs)
-            self.token_cache[input_hash] = input_image_tokens
 
+        # get triplane
+        input_image_tokens: torch.Tensor = self.image_tokenizer(inputs)         # [b,1,c,n]
         input_image_tokens = rearrange(input_image_tokens, 'B Nv C Nt -> B (Nv Nt) C')
-        tokens = self.tokenizer(batch_size)
-        tokens = self.backbone(tokens, encoder_hidden_states=input_image_tokens)
-        scene_codes = self.post_processor(self.tokenizer.detokenize(tokens))
+        tokens: torch.Tensor = self.tokenizer(batch_size)                       # [b,ct,Np*Hp*Wp]
+        tokens = self.backbone(tokens, encoder_hidden_states=input_image_tokens)# triplanes in [b,Np,Ct,Hp,Wp]
+        scene_codes = self.post_processor(self.tokenizer.detokenize(tokens))    # triplanes in [b,Np,Ct',Hp',Wp']
         
-        # Batch process the views
+        # replicate triplanes
         scene_codes = rearrange(scene_codes.unsqueeze(1).repeat(1,n_views,1,1,1,1),
-                              'b Nv Np Ct Hp Wp -> (b Nv) Np Ct Hp Wp')
-        
-        # Process rays in chunks for memory efficiency
-        rays_o = rearrange(rays_o, 'b Nv h w c -> (b Nv) (h w) c')
-        rays_d = rearrange(rays_d, 'b Nv h w c -> (b Nv) (h w) c')
-        
-        h, w = rays_o.shape[1:3]
-        chunks = torch.split(torch.arange(rays_o.shape[1]), self.cfg.ray_chunk_size)
-        
-        render_images = []
-        render_masks = []
-        
-        for chunk in chunks:
-            chunk_rays_o = rays_o[:, chunk]
-            chunk_rays_d = rays_d[:, chunk]
-            
-            chunk_results = self.renderer(self.decoder, 
-                                        scene_codes, 
-                                        chunk_rays_o, 
-                                        chunk_rays_d, 
-                                        return_mask=True)
-            
-            render_images.append(chunk_results[0])
-            render_masks.append(chunk_results[1])
-            
-        render_images = torch.cat(render_images, dim=1)
-        render_masks = torch.cat(render_masks, dim=1)
-        
-        # Reshape back to original dimensions
-        render_images = rearrange(render_images, '(b Nv) (h w) c -> b Nv c h w', 
-                                Nv=n_views, h=h, w=w)
-        render_masks = rearrange(render_masks, '(b Nv) (h w) c -> b Nv c h w', 
-                               Nv=n_views, h=h, w=w)
+                                'b Nv Np Ct Hp Wp -> (b Nv) Np Ct Hp Wp')
+
+        # render
+        rays_o = rearrange(rays_o, 'b Nv h w c -> (b Nv) h w c')
+        rays_d = rearrange(rays_d, 'b Nv h w c -> (b Nv) h w c')
+        render_images, render_masks = self.renderer(self.decoder, 
+                                                    scene_codes, 
+                                                    rays_o, rays_d, 
+                                                    return_mask=True)  # [b*Nv,h,w,3], [b*Nv,h,w]
+        render_images = rearrange(render_images, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
+        render_masks = rearrange(render_masks, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
         
         return {'images_rgb': render_images, 
                 'images_weight': render_masks}
 
-    @torch.inference_mode()
-    def render_360(self, scene_codes, n_views: int, elevation_deg: float = 0.0,
-                  camera_distance: float = 1.9, fovy_deg: float = 40.0,
-                  height: int = 256, width: int = 256, return_type: str = "pil"):
-        """Optimized 360 rendering with batched processing"""
-        rays_o, rays_d = get_spherical_cameras(n_views, elevation_deg, camera_distance, 
-                                             fovy_deg, height, width)
+
+    def get_latent_from_img(
+        self,
+        image: Union[
+            PIL.Image.Image,
+            np.ndarray,
+            torch.FloatTensor,
+            List[PIL.Image.Image],
+            List[np.ndarray],
+            List[torch.FloatTensor],
+        ],
+        device: str,
+    ) -> torch.FloatTensor:
+        rgb_cond = self.image_processor(image, self.cfg.cond_image_size)[:, None].to(
+            device
+        )
+        batch_size = rgb_cond.shape[0]
+
+        input_image_tokens: torch.Tensor = self.image_tokenizer(
+            rearrange(rgb_cond, "B Nv H W C -> B Nv C H W", Nv=1),
+        )
+
+        input_image_tokens = rearrange(
+            input_image_tokens, "B Nv C Nt -> B (Nv Nt) C", Nv=1
+        )
+
+        tokens: torch.Tensor = self.tokenizer(batch_size)
+
+        tokens = self.backbone(
+            tokens,
+            encoder_hidden_states=input_image_tokens,
+        )
+
+        scene_codes = self.post_processor(self.tokenizer.detokenize(tokens))
+        return scene_codes
+
+    def render_360(
+        self,
+        scene_codes,
+        n_views: int,
+        elevation_deg: float = 0.0,
+        camera_distance: float = 1.9,
+        fovy_deg: float = 40.0,
+        height: int = 256,
+        width: int = 256,
+        return_type: str = "pil",
+    ):
+        rays_o, rays_d = get_spherical_cameras(
+            n_views, elevation_deg, camera_distance, fovy_deg, height, width
+        )
         rays_o, rays_d = rays_o.to(scene_codes.device), rays_d.to(scene_codes.device)
-        
-        if self.cfg.use_half_precision:
-            rays_o = rays_o.half()
-            rays_d = rays_d.half()
-            scene_codes = scene_codes.half()
 
         def process_output(image: torch.FloatTensor):
             if return_type == "pt":
@@ -177,30 +187,62 @@ class OptimizedTSR(BaseModule):
             elif return_type == "np":
                 return image.detach().cpu().numpy()
             elif return_type == "pil":
-                return Image.fromarray((image.detach().cpu().numpy() * 255.0).astype(np.uint8))
+                return Image.fromarray(
+                    (image.detach().cpu().numpy() * 255.0).astype(np.uint8)
+                )
             else:
                 raise NotImplementedError
 
-        # Process in batches
-        batch_size = self.cfg.batch_size
         images = []
         for scene_code in scene_codes:
             images_ = []
-            for i in range(0, n_views, batch_size):
-                batch_end = min(i + batch_size, n_views)
-                batch_rays_o = rays_o[i:batch_end]
-                batch_rays_d = rays_d[i:batch_end]
-                
-                # Flatten batch for processing
-                flat_rays_o = batch_rays_o.reshape(-1, *batch_rays_o.shape[2:])
-                flat_rays_d = batch_rays_d.reshape(-1, *batch_rays_d.shape[2:])
-                
-                image_batch = self.renderer(self.decoder, scene_code, flat_rays_o, flat_rays_d)
-                
-                # Process and store results
-                for img in image_batch:
-                    images_.append(process_output(img))
-            
+            for i in range(n_views):
+                with torch.no_grad():
+                    image = self.renderer(
+                        self.decoder, scene_code, rays_o[i], rays_d[i]
+                    )
+                images_.append(process_output(image))
             images.append(images_)
-        
         return images
+
+    def set_marching_cubes_resolution(self, resolution: int):
+        if (
+            self.isosurface_helper is not None
+            and self.isosurface_helper.resolution == resolution
+        ):
+            return
+        self.isosurface_helper = MarchingCubeHelper(resolution)
+
+    def extract_mesh(self, scene_codes, resolution: int = 256, threshold: float = 25.0):
+        self.set_marching_cubes_resolution(resolution)
+        meshes = []
+        for scene_code in scene_codes:
+            with torch.no_grad():
+                density = self.renderer.query_triplane(
+                    self.decoder,
+                    scale_tensor(
+                        self.isosurface_helper.grid_vertices.to(scene_codes.device),
+                        self.isosurface_helper.points_range,
+                        (-self.renderer.cfg.radius, self.renderer.cfg.radius),
+                    ),
+                    scene_code,
+                )["density_act"]
+            v_pos, t_pos_idx = self.isosurface_helper(-(density - threshold))
+            v_pos = scale_tensor(
+                v_pos,
+                self.isosurface_helper.points_range,
+                (-self.renderer.cfg.radius, self.renderer.cfg.radius),
+            )
+            with torch.no_grad():
+                color = self.renderer.query_triplane(
+                    self.decoder,
+                    v_pos,
+                    scene_code,
+                )["color"]
+            mesh = trimesh.Trimesh(
+                vertices=v_pos.cpu().numpy(),
+                faces=t_pos_idx.cpu().numpy(),
+                vertex_colors=color.cpu().numpy(),
+            )
+            meshes.append(mesh)
+        return meshes
