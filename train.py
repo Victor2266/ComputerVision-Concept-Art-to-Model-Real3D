@@ -93,7 +93,7 @@ def main():
     scheduler = transformers.get_cosine_schedule_with_warmup(optimizer,
                                                              num_warmup_steps=config.train.warmup_iter // config.train.accumulation_step,
                                                              num_training_steps=config.train.total_iteration // config.train.accumulation_step)
-    scaler = torch.cuda.amp.GradScaler()
+    scaler = torch.cuda.amp.GradScaler('cuda')
 
     # load pre-trained model
     if len(config.train.pretrain_path) > 0:
