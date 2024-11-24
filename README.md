@@ -34,7 +34,7 @@ pip uninstall torchmcubes
 pip install git+https://github.com/tatsy/torchmcubes.git
 
 # Install other dependencies < probably don't need to do this
-pip install rembg pillow numpy
+pip install rembg pillow numpy onnxruntime
 ```
 
 ### (Google Colab Option)
