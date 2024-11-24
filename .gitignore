@@ -176,3 +176,5 @@ outputs/
 /dataset/split_info/mvimgnet_mv_center_info/
 
 google_dataset/
+multiview_input/
+multiview_dataset/

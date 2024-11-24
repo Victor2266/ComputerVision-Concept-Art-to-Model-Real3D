@@ -2,3 +2,6 @@ selenium
 webdriver-manager
 requests
 fake-http-header
+
+# requires python 3.10
+blendify
