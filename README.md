@@ -47,6 +47,7 @@ conda install -c nvidia cuda-toolkit
 # It wasn't detecting my gpu so had to change the cmake file to "86" but I think this only works for some gpus
 git clone https://github.com/tatsy/torchmcubes.git
 cd torchmcubes
+
 # in CMakeLists.txt file, change set(CMAKE_CUDA_ARCHITECTURES "native") to set(CMAKE_CUDA_ARCHITECTURES "86")
 pip install .
 
