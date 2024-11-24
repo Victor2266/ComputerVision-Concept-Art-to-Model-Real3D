@@ -54,7 +54,11 @@ class TSR(BaseModule):
     def from_pretrained(
         cls, pretrained_model_name_or_path: str, config_name: str, weight_name: str
     ):
-        if os.path.isdir(pretrained_model_name_or_path):
+        if os.path.isfile(pretrained_model_name_or_path):
+            config_path = os.path.join(os.path.dirname(pretrained_model_name_or_path), config_name)
+            weight_path = pretrained_model_name_or_path
+            use_saved_ckpt = True
+        elif os.path.isdir(pretrained_model_name_or_path):
             config_path = os.path.join(pretrained_model_name_or_path, config_name)
             weight_path = os.path.join(pretrained_model_name_or_path, weight_name)
             use_saved_ckpt = True

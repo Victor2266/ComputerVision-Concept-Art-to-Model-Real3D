@@ -120,6 +120,10 @@ def get_dataset_multiview(config, split):
         data2 = Objaverse_0123(config, split)
         data = ConcatDataset([data1, data2])
     else:
+        if not name:
+            print('Not implemented dataset: [BLANK]')
+        else:
+            print('Not implemented dataset: {}'.format(name))
         NotImplementedError('Not implemented dataset')  
     return data
 
