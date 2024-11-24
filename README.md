@@ -34,7 +34,24 @@ pip uninstall torchmcubes
 pip install git+https://github.com/tatsy/torchmcubes.git
 
 # Install other dependencies < probably don't need to do this
-pip install rembg pillow numpy
+pip install rembg pillow numpy onnxruntime
+```
+Move on to the next step.
+
+
+
+**This is a fix for an issue when installing torchmcubes where it doesn't detect GPU:**
+```
+conda install -c nvidia cuda-toolkit
+
+# It wasn't detecting my gpu so had to change the cmake file to "86" but I think this only works for some gpus
+git clone https://github.com/tatsy/torchmcubes.git
+cd torchmcubes
+
+# in CMakeLists.txt file, change set(CMAKE_CUDA_ARCHITECTURES "native") to set(CMAKE_CUDA_ARCHITECTURES "86")
+pip install .
+
+# Also had to rerun install requirements.txt after installing torchmcubes
 ```
 
 ### (Google Colab Option)
