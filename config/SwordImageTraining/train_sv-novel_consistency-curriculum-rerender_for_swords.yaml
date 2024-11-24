@@ -1,5 +1,5 @@
-exp_name: 'base_mvimgnet-eval-psnr-all-lr4e-5-100-3'
-exp_group: 'wildLRM-objaverse-both-all'
+exp_name: 'SwordsSV-consistency-rerender-lr4e-5-100-3'
+exp_group: 'Training_on_Swords'
 output_dir: './output/'
 log_dir: './log'
 workers: 4
@@ -17,10 +17,10 @@ dataset:
   img_crop_max: 384
   white_bkg: True
   # multiview data setting (training)
-  mv_data_name: 'objaverse_both'
+  mv_data_name: ''
   # single-view data setting (training)
   sv_data_use: True
-  sv_data_name: 'mvimgnet_wild'
+  sv_data_name: 'wild'
   sv_render_views: 4
   sv_render_views_sample: 'constraint2_elevation'
   sv_curriculum: '15-90_15-90'  # initial-finial azimuth and elevation
