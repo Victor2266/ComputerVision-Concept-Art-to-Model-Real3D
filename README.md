@@ -69,6 +69,7 @@ Download the a model weight:
 - [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
 - [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
 - [Our Model Weight Fine Tuned on Fantasy Sword Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+- [Our Model Weight Fine Tuned on Food Items](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
 
 and put it into `./checkpoint/<model_name>.ckpt`.
 
@@ -81,6 +82,8 @@ Use `./run.sh` and modify your image path and foreground segmentation config acc
 
 **To Fix “permission denied” error:**
 Use `chmod +x run.sh` to add the “x” permission.
+
+A good input image follows 3 criteria: It should have a clear subject that isn't smaller than 100 pixels, the subject should not be occluded by other objects or cutoff from the image, and extremely asynetrically objects have issues.
 
 ### **If you want to modify the parameters for run.py:**
 
