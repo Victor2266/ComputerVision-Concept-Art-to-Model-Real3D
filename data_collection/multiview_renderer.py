@@ -11,8 +11,6 @@ DIR_PATH = pathlib.Path(__file__).parent
 DATASET_INPUT_PATH = DIR_PATH / "multiview_input"
 DATASET_OUTPUT_PATH = DIR_PATH / "multiview_dataset"
 
-INPUT_NAME = "anvil"
-OUTPUT_PATH = DATASET_OUTPUT_PATH / INPUT_NAME
 
 """
 Format:
@@ -56,12 +54,13 @@ def add_cam(orbit_distance, elevation_angle, azimuth_angle):
 
 
 def setup_scene():
-    scene.lights.add_point(strength=1000, translation=(4, -2, 4))
-    bpy.ops.import_scene.fbx(filepath=str(DATASET_INPUT_PATH / f"{INPUT_NAME}.fbx"))
+    add_hdri(str(DIR_PATH / "sunrise.hdr"))
+
+
+def import_obj(input_path):
+    bpy.ops.import_scene.gltf(filepath=str(input_path))
     obj = bpy.context.selected_objects[0]
     normalize_obj(obj)
-    DATASET_OUTPUT_PATH.mkdir(exist_ok=True)
-    OUTPUT_PATH.mkdir(exist_ok=True)
 
 
 def write_render_json(json_path, cam: PerspectiveCamera):
@@ -80,45 +79,93 @@ def write_render_json(json_path, cam: PerspectiveCamera):
         json.dump(render_data, file, indent=4)
 
 
-def render_view(view_name, orbit_distance, elevation_angle, azimuth_angle):
-    cam = add_cam(orbit_distance, elevation_angle, azimuth_angle)
-    render_name = f"{INPUT_NAME}_{view_name}"
-    new_dir = OUTPUT_PATH / render_name
-    new_dir.mkdir()
+def render_view(
+    output_path: pathlib.Path,
+    view_count,
+    orbit_distance,
+    elevation_angle,
+    azimuth_angle,
+):
+    padded_view_count = f"{view_count:05}"
+    view_dir = output_path / padded_view_count
+    view_dir.mkdir(exist_ok=True)
 
-    json_file = new_dir / f"{render_name}.json"
+    cam = add_cam(orbit_distance, elevation_angle, azimuth_angle)
+
+    json_file = view_dir / f"{padded_view_count}.json"
     write_render_json(json_file, cam)
 
     scene.render(
-        filepath=str(new_dir / f"{render_name}.png"),
+        filepath=str(view_dir / f"{padded_view_count}.png"),
         samples=64,
         use_denoiser=True,
-        save_depth=True,
-        save_albedo=True,
+        # save_depth=True,
+        # save_albedo=True,
     )
 
+    return view_count + 1
 
-def render():
+
+def render_multiview(input_idx):
+    output_path = DATASET_OUTPUT_PATH / f"{input_idx:05}"
+    output_path.mkdir(exist_ok=True)
+
+    view_count = 0
+
     # elevation range from 5° to 30°, rotation = {r × 15° | r ∈ [0, 23]}
     orbit_distance = 1.6450
     for view_idx in range(24):
         azimuth_angle = math.radians(view_idx * 15)
         elevation_angle = math.radians(5 + (25 * (view_idx / 23)))
-        render_view(f"high_{view_idx}", orbit_distance, elevation_angle, azimuth_angle)
+        view_count = render_view(
+            output_path, view_count, orbit_distance, elevation_angle, azimuth_angle
+        )
 
     # elevation from -5° to 5°, rotation = {r × 30° | r ∈ [0, 11]}
     orbit_distance = 1.9547
     for view_idx in range(12):
         azimuth_angle = math.radians(view_idx * 30)
         elevation_angle = math.radians(-5 + (10 * (view_idx / 11)))
-        render_view(f"low_{view_idx}", orbit_distance, elevation_angle, azimuth_angle)
+        view_count = render_view(
+            output_path, view_count, orbit_distance, elevation_angle, azimuth_angle
+        )
 
     # top and bottom view
     orbit_distance = 1.6450
-    render_view("top", orbit_distance, math.radians(90), 0)
-    render_view("bottom", orbit_distance, math.radians(-90), 0)
+    view_count = render_view(
+        output_path, view_count, orbit_distance, math.radians(90), 0
+    )
+    view_count = render_view(
+        output_path, view_count, orbit_distance, math.radians(-90), 0
+    )
+
+
+def add_hdri(hdri_path):
+    world = bpy.context.scene.world
+    world.use_nodes = True
+    nodes = world.node_tree.nodes
+    links = world.node_tree.links
+    nodes.clear()
+
+    env_tex = nodes.new("ShaderNodeTexEnvironment")
+    env_tex.image = bpy.data.images.load(hdri_path)
+    background = nodes.new("ShaderNodeBackground")
+    output = nodes.new("ShaderNodeOutputWorld")
+
+    links.new(env_tex.outputs["Color"], background.inputs["Color"])
+    links.new(background.outputs["Background"], output.inputs["Surface"])
 
 
 if __name__ == "__main__":
-    setup_scene()
-    render()
+    DATASET_OUTPUT_PATH.mkdir(exist_ok=True)
+    valid_extensions = [".glb", ".gltf"]
+
+    for input_idx, input_path in enumerate(DATASET_INPUT_PATH.iterdir()):
+        if input_path.suffix.lower() not in valid_extensions:
+            print(f"Skipped {input_path.name}")
+            continue
+
+        setup_scene()
+        import_obj(input_path)
+        render_multiview(input_idx)
+        scene.clear()
