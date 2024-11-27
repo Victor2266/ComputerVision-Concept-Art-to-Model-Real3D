@@ -3,9 +3,10 @@ import math
 import pathlib
 
 import bpy
+import numpy
 from blendify import scene
 from blendify.cameras import PerspectiveCamera
-from mathutils import Vector  # type: ignore
+from mathutils import Vector
 
 DIR_PATH = pathlib.Path(__file__).parent
 DATASET_INPUT_PATH = DIR_PATH / "multiview_input"
@@ -31,12 +32,16 @@ def normalize_obj(obj):
     bbox_center = sum(bbox_corners, Vector()) / 8.0
     bbox_size = max((corner - bbox_center).length for corner in bbox_corners)
 
+    # center object at origin
+    vertices = numpy.empty((len(obj.data.vertices), 3), dtype=numpy.float32)
+    obj.data.vertices.foreach_get("co", vertices.ravel())
+    vertices -= bbox_center
+    obj.data.vertices.foreach_set("co", vertices.ravel())
+    obj.data.update()
+
     # scale object to fit range
     scale_factor = 1 / (2 * bbox_size)
     obj.scale *= scale_factor
-
-    # center object at origin
-    obj.location -= bbox_center
 
 
 def add_cam(orbit_distance, elevation_angle, azimuth_angle):
@@ -57,9 +62,23 @@ def setup_scene():
     add_hdri(str(DIR_PATH / "sunrise.hdr"))
 
 
+def join_objs():
+    objs = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    base = objs[0]
+
+    if len(objs) > 1:
+        with bpy.context.temp_override(
+            active_object=base, selected_editable_objects=objs
+        ):
+            bpy.ops.object.join()
+
+    return base
+
+
 def import_obj(input_path):
     bpy.ops.import_scene.gltf(filepath=str(input_path))
-    obj = bpy.context.selected_objects[0]
+    obj = join_objs()
+    bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     normalize_obj(obj)
 
 
@@ -103,6 +122,7 @@ def render_view(
         # save_albedo=True,
     )
 
+    print(f"Rendered view {padded_view_count}")
     return view_count + 1
 
 
