@@ -1,0 +1,2 @@
+blendify # requires python 3.10
+fake-bpy-module

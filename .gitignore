@@ -178,3 +178,6 @@ outputs/
 google_dataset/
 multiview_input/
 multiview_dataset/
+glb_input/
+glb_output/
+test/
