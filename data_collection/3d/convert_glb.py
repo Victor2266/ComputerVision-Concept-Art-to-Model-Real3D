@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 import zipfile
 from pathlib import Path
@@ -7,6 +8,8 @@ PATH_TO_FBX2GLTF = Path.home() / "Downloads" / "FBX2glTF-windows-x64.exe"
 DIR_PATH = Path(__file__).parent
 INPUT_DIR = DIR_PATH / "glb_input"
 OUTPUT_DIR = DIR_PATH / "glb_output"
+
+CLEAR_INPUT_DIR = False
 
 DOWNLOAD_ORIGIN = "turbosquid"
 
@@ -35,6 +38,9 @@ def fbx_to_gltf(fbx_path: Path):
 
 def extract_zip(path, output_dir):
     with zipfile.ZipFile(path, "r") as zip_ref:
+        for member in zip_ref.namelist():
+            if ".." in member or member.startswith("/") or member.startswith("\\"):
+                raise ValueError(f"Unsafe path detected: {member}")
         zip_ref.extractall(output_dir)
 
 
@@ -59,4 +65,10 @@ if __name__ == "__main__":
 
         for fbx_path in extract_path.rglob("*.fbx"):
             fbx_to_gltf(fbx_path)
+
+            if CLEAR_INPUT_DIR:
+                if extract_path.is_dir():
+                    shutil.rmtree(extract_path)
+                input_path.unlink()
+
             break

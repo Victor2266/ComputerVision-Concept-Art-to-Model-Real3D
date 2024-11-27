@@ -122,6 +122,7 @@ def render_view(
         # save_albedo=True,
     )
 
+    print(f"Rendered view {padded_view_count}")
     return view_count + 1
 
 
