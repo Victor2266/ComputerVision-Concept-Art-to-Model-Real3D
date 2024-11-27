@@ -13,14 +13,17 @@ from einops import rearrange
 from torch.utils.data import ConcatDataset, Dataset
 from dataset.omniobject3d import Omniobject3D
 from dataset.objaverse import Objaverse
+from dataset.objaverseWintoWSLpaths import ObjaverseWintoWSL
 from dataset.objaverse_0123 import Objaverse_0123
 from dataset.mvimagenet_sv import MVIMageNet_SV
 from dataset.wild_sv import WILD_SV
+from dataset.wild_sv_fruit_testers import WILD_SV_FRUIT_TESTERS
 from dataset.omniobject3d import Omniobject3D
 from dataset.co3d import CO3D
 from dataset.mvimgnet import MVIMageNet_MV
 from dataset.demo import DEMO_SV
 from dataset.wild_sv_unfiltered import WILD_SV_UNFILTERED
+from dataset.wild_sv_unfiltered_fruit_trainers import WILD_SV_UNFILTERED_FRUIT_TRAINERS
 from dataset.constant import *
 from utils import loader_utils, process_utils
 import shutil
@@ -113,6 +116,8 @@ def get_dataset_multiview(config, split):
     name = config.dataset.mv_data_name
     if name == 'objaverse':
         data = Objaverse(config, split)
+    elif name == 'objaverseWin2WSL':
+        data = ObjaverseWintoWSL(config, split)
     elif name == 'objaverse0123':
         data = Objaverse_0123(config, split)
     elif name == 'objaverse_both':
@@ -149,6 +154,9 @@ def get_dataset_single_view(config, split='train', length=1):
         elif name == 'wild-unfiltered':
             datas.append(WILD_SV_UNFILTERED(config, split, length))
             weights.append(1.0)
+        elif name == 'wild-unfiltered-fruit-trainers':
+            datas.append(WILD_SV_UNFILTERED_FRUIT_TRAINERS(config, split, length))
+            weights.append(1.0)
         else:
             NotImplementedError('Not implemented dataset')
     
@@ -172,6 +180,8 @@ def get_dataset_testing(config, split='test'):
         data = MVIMageNet_SV(config, split)
     elif name == 'wild':
         data = WILD_SV(config, split)
+    elif name == 'WildFruitTesters':
+        data = WILD_SV_FRUIT_TESTERS(config, split)
     elif name == 'omniobject3d':
         data = Omniobject3D(config, split, mode='multiview')
     elif name == 'co3d':

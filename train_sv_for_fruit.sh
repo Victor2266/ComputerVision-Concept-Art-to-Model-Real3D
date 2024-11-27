@@ -1,6 +1,6 @@
 # this is slow but might be more accurate
 CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --master_port 8888 --nproc_per_node=1 \
-train.py --cfg ./config/FruitImageTraining/train_sv-novel_consistency-curriculum-rerender_for_fruit.yaml
+train_fruit.py --cfg ./config/FruitImageTraining/train_sv-novel_consistency-curriculum-rerender_for_fruit.yaml
 
 # this is faster but might be a bit less accurate
 # CUDA_VISIBLE_DEVICES=0 python -m torch.distributed.launch --master_port 8888 --nproc_per_node=1 \

@@ -27,10 +27,10 @@ ImageFile.LOAD_TRUNCATED_IMAGES = True
 
 class WILD_SV_UNFILTERED(Dataset):
     def __init__(self, config, split='train', length=1, multiple_data=False, data_name='',
-                 root='/data/dataset/openimages'):
+                 root=r"F:\Zero123 Objaverse\food drawings"):
         self.config = config
         self.split = split
-        self.root = root
+        self.root = root  # Keep Windows path since we're reading directly
         self.multiple_data = multiple_data
         self.data_name = data_name
         assert split in ['train', 'val', 'test']
@@ -65,40 +65,53 @@ class WILD_SV_UNFILTERED(Dataset):
     def _load_dataset(self):
         data_root = './dataset/split_info'
         os.makedirs(data_root, exist_ok=True)
-        data_split_file_path = os.path.join(data_root, 'singleview_unfiltered.json')
+        data_split_file_path = os.path.join(data_root, 'food_singleview_unfiltered.json')
 
         if not os.path.exists(data_split_file_path):
+            print(f"Creating new split file at {data_split_file_path}")
             self._split_data(data_split_file_path)
+        else:
+            print(f"Loading existing split from {data_split_file_path}")
+            with open(data_split_file_path, 'r') as f:
+                data_split_file = json.load(f)
 
-        with open(data_split_file_path, 'r') as f:
-            data_split_file = json.load(f)
-
-        print('Singleview unfiltered (SV) dataset instances: train {}, test {}'.format(len(data_split_file['train']),
-                                                                         len(data_split_file['test'])))
+        print('Singleview food unfiltered (SV) dataset instances: train {}, test {}'.format(
+            len(data_split_file['train']), len(data_split_file['test'])))
         self.data_split.update(data_split_file)
-
 
     def _split_data(self, data_split_file_path):
         '''
-        Select data that have both images and masks
+        Select data that have both images and masks from flat directory structure
         '''
         all_instances_valid = []
 
-        all_data = os.listdir(self.root)
-        for dataset in all_data:
-            all_instances = os.listdir(os.path.join(self.root, dataset))
-            all_instances_valid += [os.path.join(dataset, it) for it in all_instances]
+        # Get all PNG/JPEG files from the root directory
+        valid_extensions = {'.png', '.jpg', '.jpeg', '.PNG', '.JPG', '.JPEG'}
+        for filename in os.listdir(self.root):
+            if os.path.splitext(filename)[1] in valid_extensions:
+                try:
+                    # Verify the image can be opened and is RGBA
+                    img_path = os.path.join(self.root, filename)
+                    with Image.open(img_path) as img:
+                        if img.mode == 'RGBA':
+                            all_instances_valid.append(filename)
+                except Exception as e:
+                    print(f"Skipping {filename} due to error: {str(e)}")
 
+        print(f"Found {len(all_instances_valid)} valid RGBA images")
+
+        # Split into train and test
         random.shuffle(all_instances_valid)
-        all_info = {'train': all_instances_valid[:-1000], 'test': all_instances_valid[-1000:]}
+        num_test = min(1000, int(len(all_instances_valid) * 0.1))  # 10% or 1000, whichever is smaller
+        
+        all_info = {
+            'train': all_instances_valid[:-num_test], 
+            'test': all_instances_valid[-num_test:]
+        }
 
+        # Save the split
         with open(data_split_file_path, 'w') as f:
             json.dump(all_info, f, indent=4)
-
-
-    def __len__(self):
-        return len(self.seq_names)
-    
 
     def __getitem__(self, idx):
         img_name = self.seq_names[idx]
@@ -114,7 +127,7 @@ class WILD_SV_UNFILTERED(Dataset):
             img = img * mask + (1 - mask) * bkgd_color
 
         if self.config.train.normalize_img:
-            imgs = self._normalize_img(imgs)
+            img = self._normalize_img(img)
 
         fov = 0.691150367
         fx, fy = 0.5 / math.tan(0.5 * fov), 0.5 / math.tan(0.5 * fov)
@@ -144,8 +157,8 @@ class WILD_SV_UNFILTERED(Dataset):
 
         if self.rerender_consistency_input and self.use_consistency:
             rays_o_hres, rays_d_hres = get_rays_from_pose(c2w, 
-                                                          focal=Ks[:,0,0] / self.render_size * self.img_size, 
-                                                          size=self.img_size)
+                                                         focal=Ks[:,0,0] / self.render_size * self.img_size, 
+                                                         size=self.img_size)
             sample['rays_o_hres'] = rays_o_hres
             sample['rays_d_hres'] = rays_d_hres
 

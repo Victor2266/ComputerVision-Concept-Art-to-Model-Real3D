@@ -57,6 +57,8 @@ class MVIMageNet_MV(Dataset):
             self.canonical_distance = SCALE_OBJAVERSE
         elif config.dataset.mv_data_name == 'objaverse_both':
             self.canonical_distance = SCALE_OBJAVERSE_BOTH
+        elif config.dataset.mv_data_name == 'objaverseWin2WSL':
+            self.canonical_distance = SCALE_OBJAVERSE
         elif config.dataset.mv_data_name == 'none': # raw triposr
             self.canonical_distance = 1.8
         else:
