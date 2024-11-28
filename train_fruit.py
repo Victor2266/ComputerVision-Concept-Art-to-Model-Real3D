@@ -99,6 +99,17 @@ def main():
     if len(config.train.pretrain_path) > 0:
         model = train_utils.load_pretrain(config, model, config.train.pretrain_path, strict=True)
 
+    for name, param in model.named_parameters():
+        if (
+         "decoder.layers.17" in name or
+          "decoder.layers.18" in name
+        ):
+            param.requires_grad = True
+        else:
+            param.requires_grad = False
+
+        print(f"{name}: requires_grad={param.requires_grad}")
+
     # resume training
     best_sim, best_psnr = 0.0, 0.0
     ep_resume = None
