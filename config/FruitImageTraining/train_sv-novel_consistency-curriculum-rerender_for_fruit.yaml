@@ -34,8 +34,8 @@ model:
   model_name: 'model_both_trained_v1_for_TRAINING.ckpt'
   backbone_fix: False
   render_resolution: 128
-  render_chunk_size: 8192 #32768 #24576 #16384
-  render_num_samples_per_ray: 64
+  render_chunk_size: 64 #32768 #24576 #16384
+  render_num_samples_per_ray: 32
 
 
 loss:
@@ -55,13 +55,14 @@ train:
   eps: 0.000001
   weight_decay: 0.05   # 0.05
   warmup_iter: 1000
-  total_iteration: 25000
+  total_iteration: 2000
   grad_max: 0.5
   batch_size: 1
   batch_size_sv: 1
-  accumulation_step: 1
+  accumulation_step: 2
   normalize_img: False
   use_amp: True
+  # amp_dtype: "bfloat16"  # or "float16"
   use_checkpointing: True
   use_zeroRO: True
   use_consistency: True

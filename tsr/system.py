@@ -105,30 +105,32 @@ class TSR(BaseModule):
                 rays_o: torch.FloatTensor,
                 rays_d: torch.FloatTensor,
                 ):
-        # input images in shape [b,1,c,h,w], value range [0,1]
-        # rays_o and rays_d in shape [b,Nv,h,w,3]
-        batch_size, n_views = rays_o.shape[:2]
+        torch.cuda.empty_cache()
+        with torch.cuda.amp.autocast(enabled=True):
+            # input images in shape [b,1,c,h,w], value range [0,1]
+            # rays_o and rays_d in shape [b,Nv,h,w,3]
+            batch_size, n_views = rays_o.shape[:2]
 
-        # get triplane
-        input_image_tokens: torch.Tensor = self.image_tokenizer(inputs)         # [b,1,c,n]
-        input_image_tokens = rearrange(input_image_tokens, 'B Nv C Nt -> B (Nv Nt) C')
-        tokens: torch.Tensor = self.tokenizer(batch_size)                       # [b,ct,Np*Hp*Wp]
-        tokens = self.backbone(tokens, encoder_hidden_states=input_image_tokens)# triplanes in [b,Np,Ct,Hp,Wp]
-        scene_codes = self.post_processor(self.tokenizer.detokenize(tokens))    # triplanes in [b,Np,Ct',Hp',Wp']
-        
-        # replicate triplanes
-        scene_codes = rearrange(scene_codes.unsqueeze(1).repeat(1,n_views,1,1,1,1),
-                                'b Nv Np Ct Hp Wp -> (b Nv) Np Ct Hp Wp')
+            # get triplane
+            input_image_tokens: torch.Tensor = self.image_tokenizer(inputs)         # [b,1,c,n]
+            input_image_tokens = rearrange(input_image_tokens, 'B Nv C Nt -> B (Nv Nt) C')
+            tokens: torch.Tensor = self.tokenizer(batch_size)                       # [b,ct,Np*Hp*Wp]
+            tokens = self.backbone(tokens, encoder_hidden_states=input_image_tokens)# triplanes in [b,Np,Ct,Hp,Wp]
+            scene_codes = self.post_processor(self.tokenizer.detokenize(tokens))    # triplanes in [b,Np,Ct',Hp',Wp']
+            
+            # replicate triplanes
+            scene_codes = rearrange(scene_codes.unsqueeze(1).repeat(1,n_views,1,1,1,1),
+                                    'b Nv Np Ct Hp Wp -> (b Nv) Np Ct Hp Wp')
 
-        # render
-        rays_o = rearrange(rays_o, 'b Nv h w c -> (b Nv) h w c')
-        rays_d = rearrange(rays_d, 'b Nv h w c -> (b Nv) h w c')
-        render_images, render_masks = self.renderer(self.decoder, 
-                                                    scene_codes, 
-                                                    rays_o, rays_d, 
-                                                    return_mask=True)  # [b*Nv,h,w,3], [b*Nv,h,w]
-        render_images = rearrange(render_images, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
-        render_masks = rearrange(render_masks, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
+            # render
+            rays_o = rearrange(rays_o, 'b Nv h w c -> (b Nv) h w c')
+            rays_d = rearrange(rays_d, 'b Nv h w c -> (b Nv) h w c')
+            render_images, render_masks = self.renderer(self.decoder, 
+                                                        scene_codes, 
+                                                        rays_o, rays_d, 
+                                                        return_mask=True)  # [b*Nv,h,w,3], [b*Nv,h,w]
+            render_images = rearrange(render_images, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
+            render_masks = rearrange(render_masks, '(b Nv) h w c -> b Nv c h w', Nv=n_views)
         
         return {'images_rgb': render_images, 
                 'images_weight': render_masks}

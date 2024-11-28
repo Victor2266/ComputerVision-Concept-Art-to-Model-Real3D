@@ -218,52 +218,67 @@ class WILD_SV_UNFILTERED_FRUIT_TRAINERS(Dataset):
         b_array = np.array(b)
         a_array = np.array(a)
 
+        # Split the image into individual color channels
         img = np.stack([r_array, g_array, b_array], axis=-1)
-        img = np.asarray(img).transpose((2,0,1)) / 255.0                            # [3,h,w]
-        mask = np.asarray(a_array).squeeze()[:,:,np.newaxis].transpose((2,0,1))
+        # Transpose the color channels to [3,h,w] and normalize to [0,1]
+        img = np.asarray(img).transpose((2,0,1)) / 255.0
+        # Split the alpha channel into individual array
+        mask = np.asarray(a_array).squeeze()
+        # Transpose the alpha channel to [1,h,w] and threshold to get binary mask
+        mask = mask[:,:,np.newaxis].transpose((2,0,1))
         mask = (mask > 225)                                                         # [1,h,w]
+        # Convert the image and mask to tensors
         return torch.tensor(img), torch.tensor(mask).float()
 
     def _load_image(self, img_path):
-        """
-        Load image and create mask, supporting both RGBA and RGB formats.
-        For RGB images, we can either use the whole image or detect the object automatically.
-        """
         img_pil = Image.open(img_path)
         
-        if img_pil.mode == 'RGBA':
-            # Handle RGBA images using alpha channel as mask
+        # Handle PNG with alpha channel
+        if img_pil.format == 'PNG' and img_pil.mode == 'RGBA':
             r, g, b, a = img_pil.split()
-            img = np.array(img_pil.convert('RGB'))
-            mask = np.array(a)
-            mask = (mask > 225).astype(float)  # Binary mask from alpha channel
-        else:
-            # Handle RGB images
-            img = np.array(img_pil.convert('RGB'))
-            
-            # Option 1: Use the whole image (simple mask of all ones)
-            mask = np.ones(img.shape[:2], dtype=float)
-            
-            # Option 2: Try to detect the object using simple thresholding
-            # Uncomment this section if you want automatic object detection
-            """
-            # Convert to grayscale and threshold to find potential foreground
-            gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-            
-            # Use Otsu's thresholding
-            _, mask = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-            mask = mask.astype(float) / 255.0
-            
-            # Optional: Clean up the mask
-            kernel = np.ones((5,5), np.uint8)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
-            mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, kernel)
-            """
+            r_array = np.array(r)
+            g_array = np.array(g)
+            b_array = np.array(b)
+            a_array = np.array(a)
 
-        # Convert to tensor format
-        img = np.asarray(img).transpose((2,0,1)) / 255.0  # [3,h,w]
-        mask = mask[np.newaxis, :, :]  # [1,h,w]
-        
+            img = np.stack([r_array, g_array, b_array], axis=-1)
+            img = np.asarray(img).transpose((2,0,1)) / 255.0
+            mask = np.asarray(a_array).squeeze()
+            mask = mask[:,:,np.newaxis].transpose((2,0,1))
+            mask = (mask > 225)
+
+        # Handle JPG or other RGB images
+        else:
+            # Convert to RGB if not already
+            img_pil = img_pil.convert('RGB')
+            
+            try:
+                # Remove background using rembg
+                import rembg
+                rembg_session = rembg.new_session()
+                output = rembg.remove(img_pil, session=rembg_session)
+                
+                # Split into RGB and alpha
+                r, g, b, a = output.split()
+                r_array = np.array(r)
+                g_array = np.array(g)
+                b_array = np.array(b)
+                a_array = np.array(a)
+                
+                img = np.stack([r_array, g_array, b_array], axis=-1)
+                img = np.asarray(img).transpose((2,0,1)) / 255.0
+                mask = np.asarray(a_array).squeeze()
+                mask = mask[:,:,np.newaxis].transpose((2,0,1))
+                mask = (mask > 225)
+                
+            except ImportError:
+                # Fallback if rembg is not available
+                print("Warning: rembg not installed. Using simple mask for RGB image.")
+                img_array = np.array(img_pil)
+                img = np.asarray(img_array).transpose((2,0,1)) / 255.0
+                # Create a simple mask (all foreground)
+                mask = np.ones((1, img_array.shape[0], img_array.shape[1]), dtype=bool)
+
         return torch.tensor(img), torch.tensor(mask).float()
     
 

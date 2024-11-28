@@ -36,6 +36,20 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
 
     loader_sv_iter = iter(loader_sv)
     for batch_idx, sample in enumerate(loader):
+        # Ensure tensors are contiguous and in right dtype
+        input_image = sample['input_image'].contiguous()
+        rays_o = sample['rays_o'].contiguous()
+        rays_d = sample['rays_d'].contiguous()
+        
+        # Clear cache before forward pass
+        torch.cuda.empty_cache()
+
+        # Add dimension checks
+        print("Input shapes:")
+        print(f"input_image: {sample['input_image'].shape}")
+        print(f"rays_o: {sample['rays_o'].shape}")
+        print(f"rays_d: {sample['rays_d'].shape}")
+
         try:
             sample_sv = next(loader_sv_iter)
         except StopIteration:
@@ -57,12 +71,33 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
         end = time.time()
 
         # --------------------------  multiview data training --------------------------  
+        
         with autocast(enabled=config.train.use_amp, dtype=torch.bfloat16):
-            results = model(sample['input_image'],
-                            sample['rays_o'],
-                            sample['rays_d'])
+            print(f"Memory before model forward: {torch.cuda.memory_allocated()/1e9:.2f}GB")
+            torch.cuda.synchronize()
+            
+            # Process views one at a time
+            results_list = []
+            for view_idx in range(sample['rays_o'].shape[1]):
+                view_results = model(
+                    sample['input_image'],
+                    sample['rays_o'][:, view_idx:view_idx+1],
+                    sample['rays_d'][:, view_idx:view_idx+1]
+                )
+                results_list.append(view_results)
+                torch.cuda.empty_cache()
+            
+            # Combine results
+            results = {
+                'images_rgb': torch.cat([r['images_rgb'] for r in results_list], dim=1),
+                'images_weight': torch.cat([r['images_weight'] for r in results_list], dim=1)
+            }
+            
             time_meters.add_loss_value('Prediction time', time.time() - end)
+            print(f"Memory after model forward: {torch.cuda.memory_allocated()/1e9:.2f}GB")
             end = time.time()
+
+        with autocast(enabled=config.train.use_amp, dtype=torch.bfloat16):
 
             losses = loss_utils.get_losses(config, results, sample, perceptual_loss)
             total_loss = 0.0
@@ -106,7 +141,6 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
                             subfolder='train_seq',
                             inv_normalize=False)
         # --------------------------  multiview data training ends--------------------------  
-            
         
         # --------------------------  single-view data training --------------------------  
         with autocast(enabled=config.train.use_amp, dtype=torch.bfloat16):
@@ -152,8 +186,7 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
                 msg += tmp
             msg = msg[:-2]
             logger.info(msg)
-        # --------------------------  single-view data training ends --------------------------  
-
+        # --------------------------  single-view data training ends ---------------------------------
 
         # --------------------------  single-view self-consistency training --------------------------
         if config.train.rerender_consistency_input:
@@ -218,7 +251,6 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
             msg = msg[:-2]
             logger.info(msg)
         # --------------------------  single-view self-consistency training ends--------------------------  
-
 
         if iter_num % config.vis_freq == 0 and rank == 0:
             n_sv, n_cy = results_sv['images_rgb'].shape[1], results_sv_cy['images_rgb'].shape[1]

@@ -134,7 +134,44 @@ class ObjaverseWintoWSL(Dataset):
             len(data_split_file['train']), len(data_split_file['test'])))
         self.data_split.update(data_split_file)
 
+    
     def _load_frame(self, seq_path, img_name):
+        file_path = os.path.join(seq_path, img_name + '.png')
+        img_pil = Image.open(file_path)
+        img_np = np.asarray(img_pil)
+        try:
+            mask = Image.fromarray((img_np[:,:,3] > 0).astype(float))
+        except:
+            mask = Image.fromarray(np.logical_and(img_np[:,:,0]==0,
+                                                  img_np[:,:,1]==0,
+                                                  img_np[:,:,2]==0).astype(float))
+
+        if self.config.dataset.white_bkg:
+            # white background
+            mask_255 = mask.point(lambda p: p * 255)
+            white_background = Image.new('RGB', img_pil.size, (255, 255, 255))
+            rgb = Image.composite(img_pil, white_background, mask_255.convert('L'))
+        else:
+            # black background
+            rgb = Image.fromarray(img_np[:,:,:3])
+
+        rgb = rgb.resize((self.img_size, self.img_size), Image.LANCZOS)
+        mask = mask.resize((self.img_size, self.img_size), Image.NEAREST)
+        rgb = np.asarray(rgb).transpose((2,0,1)) / 255.0                            # [3,H,W], in range [0,1]
+        mask = np.asarray(mask)[:,:,np.newaxis].transpose((2,0,1))                  # [1,H,W], in range [0,1]
+
+        if not self.config.dataset.white_bkg:
+            rgb *= mask
+        
+        if self.config.train.normalize_img:
+            normalization = transforms.Compose([
+                transforms.Normalize(mean=torch.tensor([0.4850, 0.4560, 0.4060]), std=torch.tensor([0.2290, 0.2240, 0.2250])),
+            ])
+            rgb = torch.from_numpy(rgb)
+            rgb = normalization(rgb).numpy()
+
+        return rgb, mask
+    def _load_frameNEW(self, seq_path, img_name):
         """Load image and mask from directory"""
         # Try direct path first
         file_path = os.path.join(seq_path, f"{img_name}.png")
@@ -220,7 +257,6 @@ class ObjaverseWintoWSL(Dataset):
             relative_seq_path = self.seq_names[idx]  # This is the relative path (e.g., "131/665232/00038")
             full_seq_path = os.path.join(self.root, relative_seq_path)  # Full path to sequence directory
             base_name = os.path.basename(relative_seq_path)  # e.g., "00038"
-
             # Get all PNG files in this directory
             png_files = []
             
@@ -228,6 +264,7 @@ class ObjaverseWintoWSL(Dataset):
             for i in range(40):  # Check all 40 possible views
                 view_name = f"{base_name}"  # Use the base name directly
                 png_path = os.path.join(full_seq_path, f"{view_name}.png")
+                # print("png_path", png_path)
                 json_path = os.path.join(full_seq_path, f"{view_name}.json")
                 if os.path.isfile(png_path) and os.path.isfile(json_path):
                     png_files.append(view_name)
