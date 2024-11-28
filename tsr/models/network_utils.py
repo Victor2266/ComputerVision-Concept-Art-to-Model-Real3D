@@ -120,7 +120,7 @@ class NeRFMLP(BaseModule):
         print(f"GPU Memory allocated: {torch.cuda.memory_allocated()/1e9:.2f}GB")
         print(f"GPU Memory cached: {torch.cuda.memory_reserved()/1e9:.2f}GB")
         '''
-        print(f"GPU Memory cached: {torch.cuda.memory_reserved()/1e9:.2f}GB")
+        # print(f"GPU Memory cached: {torch.cuda.memory_reserved()/1e9:.2f}GB")
         inp_shape = x.shape[:-1]
         x = x.reshape(-1, x.shape[-1])
 
