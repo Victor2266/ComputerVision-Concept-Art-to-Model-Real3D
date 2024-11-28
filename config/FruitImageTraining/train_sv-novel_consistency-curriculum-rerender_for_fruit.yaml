@@ -2,7 +2,7 @@ exp_name: 'FruitSV-consistency-rerender-lr4e-5-100-3'
 exp_group: 'Training_on_Fruit'
 output_dir: './output/'
 log_dir: './log'
-workers: 4
+workers: 1
 print_freq: 100
 vis_freq: 500 #2000
 eval_vis_freq: 10
@@ -10,11 +10,11 @@ seed: 42
 
 dataset:
   # general settings
-  img_size: 512
-  num_frame: 4
+  img_size: 256
+  num_frame: 3
   use_rand_crop: False
   img_crop_min: 128
-  img_crop_max: 384
+  img_crop_max: 256
   white_bkg: True
   # multiview data setting (training)
   mv_data_name: 'objaverseWin2WSL'
@@ -32,10 +32,10 @@ model:
   # use TripoSR
   pretrain_path: './checkpoint'
   model_name: 'model_both_trained_v1_for_TRAINING.ckpt'
-  backbone_fix: False
-  render_resolution: 128
-  render_chunk_size: 64 #32768 #24576 #16384
-  render_num_samples_per_ray: 32
+  backbone_fix: True
+  render_resolution: 64
+  render_chunk_size: 1 #32768 #24576 #16384
+  render_num_samples_per_ray: 16
 
 
 loss:
