@@ -14,7 +14,7 @@ dataset:
   num_frame: 4
   use_rand_crop: False
   img_crop_min: 128
-  img_crop_max: 256
+  img_crop_max: 384
   white_bkg: True
   # multiview data setting (training)
   mv_data_name: 'objaverseWin2WSL'
@@ -34,8 +34,8 @@ model:
   model_name: 'model_both_trained_v1_for_TRAINING.ckpt'
   backbone_fix: False
   render_resolution: 128
-  render_chunk_size: 1024 #32768 #24576 #16384
-  render_num_samples_per_ray: 64
+  render_chunk_size: 49152 #32768 #24576 #16384
+  render_num_samples_per_ray: 128
 
 
 loss:
@@ -53,14 +53,14 @@ train:
   beta1: 0.9  # 0.8
   beta2: 0.96
   eps: 0.000001
-  weight_decay: 0.05   # 0.05
-  warmup_iter: 1000
-  total_iteration: 2000
+  weight_decay: 0.02   # 0.05 # Reduced since we're training fewer parameters
+  warmup_iter: 250            # Reduced since we're training fewer parameters
+  total_iteration: 10000
   grad_max: 0.5
-  batch_size: 1
-  batch_size_sv: 1
-  accumulation_step: 2
-  normalize_img: False
+  batch_size: 2  # Increased since we have memory headroom
+  batch_size_sv: 2   # Increased since we have memory headroom
+  accumulation_step: 8
+  normalize_img: True
   use_amp: True
   # amp_dtype: "bfloat16"  # or "float16"
   use_checkpointing: True

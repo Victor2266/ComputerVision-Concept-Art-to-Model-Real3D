@@ -61,7 +61,8 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
             results = model(sample['input_image'],
                             sample['rays_o'],
                             sample['rays_d'])
-            print(f"Start of iteration {batch_idx}")
+            # print(f"Start of iteration {batch_idx}")
+            print(f"Start of Iteration {batch_idx} at time {time.ctime()}")
             print(f"Memory allocated: {torch.cuda.memory_allocated()/1e9:.2f}GB")
             print(f"Memory cached: {torch.cuda.memory_reserved()/1e9:.2f}GB")
             time_meters.add_loss_value('Prediction time', time.time() - end)
@@ -252,7 +253,7 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
             wandb_run.log(wandb_log)
 
 
-        if iter_num % 1000 == 0 and iter_num != 0 and batch_idx != 0:
+        if iter_num % 200 == 0 and iter_num != 0 and batch_idx != 0:
             if config.train.use_zeroRO:
                 print('Consolidated on rank {} because of ZeRO'.format(rank))
                 optimizer.consolidate_state_dict(0)
