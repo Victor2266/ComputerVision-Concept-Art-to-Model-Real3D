@@ -47,7 +47,7 @@ loss:
 train:
   resume: False
   pretrain_path: ''
-  lr: 0.00004
+  lr: 0.000004
   lr_embeddings: 0.00004
   lr_backbone: 0.00004
   beta1: 0.9  # 0.8
