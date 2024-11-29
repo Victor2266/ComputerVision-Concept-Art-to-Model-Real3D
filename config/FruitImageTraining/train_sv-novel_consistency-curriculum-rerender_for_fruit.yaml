@@ -4,7 +4,7 @@ output_dir: './output/'
 log_dir: './log'
 workers: 4
 print_freq: 100
-vis_freq: 500 #2000
+vis_freq: 250 #2000
 eval_vis_freq: 10
 seed: 42
 
@@ -57,10 +57,10 @@ train:
   warmup_iter: 250            # Reduced since we're training fewer parameters
   total_iteration: 10000
   grad_max: 0.5
-  batch_size: 2  # Increased since we have memory headroom
-  batch_size_sv: 2   # Increased since we have memory headroom
-  accumulation_step: 8
-  normalize_img: True
+  batch_size: 1  # Increased since we have memory headroom
+  batch_size_sv: 1   # Increased since we have memory headroom
+  accumulation_step: 16
+  normalize_img: False # It centers the data around zero, It gives the data similar scale across all channels, These specific values are from ImageNet, # which the base model was trained on, Make training more stable, Speed up convergence # Help the model better utilize features learned from the pretrained weights
   use_amp: True
   # amp_dtype: "bfloat16"  # or "float16"
   use_checkpointing: True
