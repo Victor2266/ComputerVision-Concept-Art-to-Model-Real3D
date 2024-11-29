@@ -59,7 +59,7 @@ train:
   grad_max: 0.5
   batch_size: 1  # Increased since we have memory headroom
   batch_size_sv: 1   # Increased since we have memory headroom
-  accumulation_step: 16
+  accumulation_step: 4 # The main reason to keep accumulation_step > 1 would be to help smooth out gradient updates, Fruits share many common characteristics so less smooting is needed
   normalize_img: False # It centers the data around zero, It gives the data similar scale across all channels, These specific values are from ImageNet, # which the base model was trained on, Make training more stable, Speed up convergence # Help the model better utilize features learned from the pretrained weights
   use_amp: True
   # amp_dtype: "bfloat16"  # or "float16"
