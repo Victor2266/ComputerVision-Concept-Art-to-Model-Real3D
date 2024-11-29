@@ -67,7 +67,7 @@ def evaluation(config, loader, model, data_name,
                                                  return_type="pt")
                 render_images = torch.stack(render_images[0])   # [n,h,w,3]
                
-                # metrics = eval_nvs(config, render_images, sample, metrics, lpips_vgg, clip_model)      
+                metrics = eval_nvs(config, render_images, sample, metrics, lpips_vgg, clip_model)      
 
             # visualize images
             subfolder = f'val/{epoch}/{data_name}' if not eval else f'test/{epoch}/{data_name}'
