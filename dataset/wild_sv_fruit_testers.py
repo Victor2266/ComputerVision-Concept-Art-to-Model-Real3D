@@ -180,8 +180,7 @@ class WILD_SV_FRUIT_TESTERS(Dataset):
 
         return sample
 
-
-    def _load_imageOLD(self, img_path):
+    def _load_image(self, img_path):
         img_pil = Image.open(img_path)
         
         # Handle PNG with alpha channel

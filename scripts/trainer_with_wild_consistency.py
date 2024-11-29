@@ -253,7 +253,7 @@ def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimize
             wandb_run.log(wandb_log)
 
 
-        if iter_num % 200 == 0 and iter_num != 0 and batch_idx != 0:
+        if iter_num % 250 == 0 and iter_num != 0 and batch_idx != 0:
             if config.train.use_zeroRO:
                 print('Consolidated on rank {} because of ZeRO'.format(rank))
                 optimizer.consolidate_state_dict(0)
