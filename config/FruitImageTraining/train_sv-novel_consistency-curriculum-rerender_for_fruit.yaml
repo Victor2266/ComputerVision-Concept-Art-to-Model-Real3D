@@ -45,16 +45,16 @@ loss:
 
 
 train:
-  resume: False
+  resume: True
   pretrain_path: ''
-  lr: 0.00002
+  lr: 0.000004
   lr_embeddings: 0.00004
   lr_backbone: 0.00004
   beta1: 0.9  # 0.8
   beta2: 0.96
   eps: 0.000001
-  weight_decay: 0.02   # 0.05 # Reduced since we're training fewer parameters
-  warmup_iter: 250            # Reduced since we're training fewer parameters
+  weight_decay: 0.005   # 0.05 # Reduced since we're training fewer parameters
+  warmup_iter: 200            # Reduced since we're training fewer parameters
   total_iteration: 10000
   grad_max: 0.5
   batch_size: 1  # Increased since we have memory headroom
