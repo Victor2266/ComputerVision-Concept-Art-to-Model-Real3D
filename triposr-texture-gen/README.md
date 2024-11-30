@@ -14,11 +14,14 @@ helpful for (re)applying fine detail to the models.
 Installation
 ------------
 
-Create a virtualenv and install requirements:
+Create a conda env and install requirements:
 
 ```sh
-python3 -m virtualenv venv
-venv/bin/pip install -r requirements.txt
+conda create -n texture-gen python=3.10 -y
+conda activate texture-gen
+
+conda install pytorch==2.2.1 pytorch-cuda=11.8 -c pytorch -c nvidia
+pip install -r requirements.txt
 ```
 
 Usage
@@ -26,16 +29,15 @@ Usage
 
 Run the `text2texture.py` script with the output mesh from
 [TripoSR](https://github.com/VAST-AI-Research/TripoSR) along with a textual description of the
-desired appearance. 
+desired appearance.
 
 ```sh
-venv/bin/python text2texture.py ~/TripoSR/output/0/mesh.obj 'a chair that looks like an avocado'
+python text2texture.py ~/TripoSR/output/0/mesh.obj 'a chair that looks like an avocado'
 ```
 
 The first time this runs, it will download a Stable Diffusion model (by default,
 [Lykon/dreamshaper-8](https://huggingface.co/Lykon/dreamshaper-8)) and a ControlNet model. The image
 model can be configured, say, to a model you've already fetched from Hugging Face.
-
 
 --------
 
