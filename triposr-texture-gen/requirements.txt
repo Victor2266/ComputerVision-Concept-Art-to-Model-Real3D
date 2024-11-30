@@ -8,3 +8,4 @@ pillow==10.2.0
 scipy==1.12.0
 # torch==2.2.1
 transformers==4.38.1
+blendify==2.0.0

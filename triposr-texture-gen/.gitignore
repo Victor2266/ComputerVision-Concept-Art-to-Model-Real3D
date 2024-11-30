@@ -4,3 +4,5 @@ venv/
 .DS_Store
 untitled.glb
 test.glb
+mesh.glb
+prepared_mesh.obj
