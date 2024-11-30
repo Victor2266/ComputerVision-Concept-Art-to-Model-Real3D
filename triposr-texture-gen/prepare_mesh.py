@@ -1,18 +1,19 @@
+import argparse
 import pathlib
 
 import bpy
 from blendify import scene
 
 DIR_PATH = pathlib.Path(__file__).parent
-INPUT_PATH = DIR_PATH / "mesh.glb"
-EXPORT_PATH = DIR_PATH / "prepared_mesh.obj"
+DEFAULT_INPUT_PATH = DIR_PATH / "mesh.glb"
+DEFAULT_EXPORT_PATH = DIR_PATH / "prepared_mesh.obj"
 
 
 def get_all_meshes():
     return [o for o in bpy.context.scene.objects if o.type == "MESH"]
 
 
-def prepare_mesh(obj):
+def prepare_mesh(obj, subdiv_levels):
     remesh_mod = obj.modifiers.new(name="Remesh", type="REMESH")
     remesh_mod.mode = "VOXEL"
     remesh_mod.voxel_size = 0.04
@@ -20,19 +21,19 @@ def prepare_mesh(obj):
     obj.modifiers.new(name="Triangulate", type="TRIANGULATE")
 
     subdiv_mod = obj.modifiers.new(name="Subdivision", type="SUBSURF")
-    subdiv_mod.levels = 2
-    subdiv_mod.render_levels = 2
+    subdiv_mod.levels = subdiv_levels
+    subdiv_mod.render_levels = subdiv_levels
 
     obj.modifiers.new(name="Triangulate", type="TRIANGULATE")
 
 
-def clean_mesh():
+def clean_mesh(subdiv_levels):
     # it comes in with small loose parts
     bpy.ops.mesh.separate(type="LOOSE")
 
     main_mesh = remove_loose_parts()
 
-    prepare_mesh(main_mesh)
+    prepare_mesh(main_mesh, subdiv_levels)
 
 
 def remove_loose_parts():
@@ -63,8 +64,37 @@ def export_mesh(filepath):
     print(f"Exported mesh to {filepath}")
 
 
+def get_args():
+    parser = argparse.ArgumentParser(description="Prepare mesh for texturing")
+    parser.add_argument(
+        "--input",
+        type=str,
+        default=str(DEFAULT_INPUT_PATH),
+        help=f"Import path (default: {DEFAULT_INPUT_PATH})",
+    )
+    parser.add_argument(
+        "--output",
+        type=str,
+        default=str(DEFAULT_EXPORT_PATH),
+        help=f"Export path (default: {DEFAULT_EXPORT_PATH})",
+    )
+    parser.add_argument(
+        "--subdiv",
+        type=int,
+        default=2,
+        help="Subdivision levels (default: 2)",
+    )
+
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
+    args = get_args()
+    input_path = pathlib.Path(args.input)
+    export_path = pathlib.Path(args.output)
+    subdiv_levels = args.subdiv
+
     scene.clear()
-    import_mesh(INPUT_PATH)
-    clean_mesh()
-    export_mesh(EXPORT_PATH)
+    import_mesh(input_path)
+    clean_mesh(subdiv_levels)
+    export_mesh(export_path)
