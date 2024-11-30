@@ -329,6 +329,12 @@ if __name__ == '__main__':
         default='output',
         help='Output directory to save the results',
     )
+    parser.add_argument(
+        '--size',
+        type=int,
+        default=512,
+        help='Resolution of the texture and raycasting',
+    )
 
     args = parser.parse_args()
 
@@ -344,6 +350,7 @@ if __name__ == '__main__':
         img_model=args.image_model,
         device=args.device,
         out_path_base=out_base,
+        size=args.size,
     )
 
     out_mesh_base = f'{out_base}-tex'
