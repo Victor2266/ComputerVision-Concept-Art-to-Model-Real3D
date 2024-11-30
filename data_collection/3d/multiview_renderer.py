@@ -134,18 +134,18 @@ def render_multiview(input_idx):
 
     # elevation range from 5° to 30°, rotation = {r × 15° | r ∈ [0, 23]}
     orbit_distance = 1.6450
-    for view_idx in range(24):
+    for view_idx in range(25):
         azimuth_angle = math.radians(view_idx * 15)
-        elevation_angle = math.radians(5 + (25 * (view_idx / 23)))
+        elevation_angle = math.radians(5 + (25 * (view_idx / 24)))
         view_count = render_view(
             output_path, view_count, orbit_distance, elevation_angle, azimuth_angle
         )
 
     # elevation from -5° to 5°, rotation = {r × 30° | r ∈ [0, 11]}
     orbit_distance = 1.9547
-    for view_idx in range(12):
+    for view_idx in range(13):
         azimuth_angle = math.radians(view_idx * 30)
-        elevation_angle = math.radians(-5 + (10 * (view_idx / 11)))
+        elevation_angle = math.radians(-5 + (10 * (view_idx / 12)))
         view_count = render_view(
             output_path, view_count, orbit_distance, elevation_angle, azimuth_angle
         )
@@ -178,8 +178,8 @@ def add_hdri(hdri_path):
 
 if __name__ == "__main__":
     DATASET_OUTPUT_PATH.mkdir(exist_ok=True)
-    valid_extensions = [".glb", ".gltf"]
 
+    valid_extensions = [".glb"]
     for input_idx, input_path in enumerate(DATASET_INPUT_PATH.iterdir()):
         if input_path.suffix.lower() not in valid_extensions:
             print(f"Skipped {input_path.name}")
