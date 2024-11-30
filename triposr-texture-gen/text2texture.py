@@ -5,6 +5,7 @@ import math
 import io
 import os
 import os.path
+import platform
 import shlex
 import subprocess
 import sys
@@ -255,11 +256,20 @@ def text2texture(
 
     print()
     print('>', *(shlex.quote(arg) for arg in depth_paint_args))
-    subprocess.run(
-        [sys.executable, *depth_paint_args],
-        check=True,
-        env={'PYTORCH_ENABLE_MPS_FALLBACK': '1'},
-    )
+    if platform.system() == "Windows":
+        enviroment = os.environ.copy()
+        enviroment['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+        subprocess.run(
+            [sys.executable, *depth_paint_args],
+            check=True,
+            env=enviroment
+        )
+    else:
+        subprocess.run(
+            [sys.executable, *depth_paint_args],
+            check=True,
+            env={'PYTORCH_ENABLE_MPS_FALLBACK': '1'},
+        )
 
     with subprocess.Popen(['bash', '-c', 'while true; do echo -n .; sleep 0.5; done']) as proc:
         tex_imdata = compute_raycast_texture(

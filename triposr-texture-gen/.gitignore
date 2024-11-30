@@ -2,3 +2,5 @@
 venv/
 *.sw[op]
 .DS_Store
+untitled.glb
+test.glb
