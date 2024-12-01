@@ -10,7 +10,7 @@
 ## Environment Setup:
 ### (Local Option)
 
-First, setup the environment.
+First, setup the environment for the Mesh Generation.
 ```
 # If you are running on windows you need to set up WSL and Conda (INSIDE WSL) first.
 
@@ -35,6 +35,11 @@ pip install git+https://github.com/tatsy/torchmcubes.git
 
 # Install other dependencies < probably don't need to do this
 pip install rembg pillow numpy onnxruntime
+```
+Second, setup the environment for the Remesh and Texture Generation.
+```
+# If you are running on windows you need to set up WSL and Conda (INSIDE WSL) first.
+
 ```
 Move on to the next step.
 
