@@ -86,7 +86,7 @@ You also have to change the run script to the path of the model you want to use:
 ![image](https://github.com/user-attachments/assets/1d887d84-ebf2-4db7-8d6a-bb0937cc8ac7)
 
 
-## Run The Demo:
+## Run The Mesh Generation Demo (Locally):
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
 
 **To Fix “permission denied” error:**
@@ -97,17 +97,20 @@ A good input image follows 3 criteria: It should have a clear subject that isn't
 ### **If you want to modify the parameters for run.py:**
 [these are the parameters](https://github.com/Victor2266/ComputerVision-Concept-Art-to-Model-Real3D/blob/4e2323a7d527d56bd7fa0e62f0f24a59a8137bca/parameters.md)
 
+## Run The Remesh and Texture Generation Demo (Locally):
+write here
 
 ## How To Do Training:
 ### Data preparation
-This repo uses MVImgNet, CO3D, OmniObject3D and our collected real images. Please see [this file](./assets/data_preparation.md).
+This repo uses Gobjaverse and our collected real images.
 
 ### Step 0: (Optional) Fine-tune TripoSR
 As TripoSR predicts 3D shapes with randomized scales, we first need to fine-tune it on Objaverse. We provide the [fine-tuned model weight](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true), so you can put it to `./checkpoint/model_both.ckpt` and skip this stage.
 
 ### Step 1: Self-training on real images
 Use `./train_sv.sh`.
-
+Or `train_sv_for_fruit.sh`
+You have to change the YAML file in `./config` to set your hyper parameters and change the paths in the dataloader scripts in `./dataset` to point to your MV and SV datasets.
 
 ## Evaluation:
 Use `./eval.sh` and modify the script and config accordingly.
@@ -117,13 +120,3 @@ For example, to evaluate on CO3D with ground-truth multiviews, use `eval_mv.py` 
 ## Acknowledgements:
 This repo is developed based on [TripoSR](https://github.com/VAST-AI-Research/TripoSR/) and [Real3D](https://github.com/hwjiang1510/Real3D/tree/main?tab=readme-ov-file)
 
-
-## BibTex
-```
-@article{jiang2024real3d,
-   title={Real3D: Scaling Up Large Reconstruction Models with Real-World Images},
-   author={Jiang, Hanwen and Huang, Qixing and Pavlakos, Georgios},
-   booktitle={arXiv preprint arXiv:2406.08479},
-   year={2024},
-}
-```
