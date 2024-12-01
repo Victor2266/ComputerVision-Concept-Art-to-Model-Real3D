@@ -85,7 +85,7 @@ class TextToObjectImage:
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         print("Setup complete!")
 
-    def resize_to_valid_dimensions(self, image: Image.Image, max_size: int = 768) -> Image.Image:
+    def resize_to_valid_dimensions(self, image: Image.Image, max_size: int = 2048) -> Image.Image:
         """Resize image to valid dimensions for Stable Diffusion while maintaining aspect ratio"""
         # Get original dimensions
         width, height = image.size
