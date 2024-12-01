@@ -357,5 +357,5 @@ if __name__ == '__main__':
     print('writing new mesh to', f'{out_mesh_base}.obj')
     write_mesh(out_mesh_base, tmesh)
 
-    if sys.stdin.isatty():
-        o3d.visualization.draw(tmesh)
+    # if sys.stdin.isatty():
+    #     o3d.visualization.draw(tmesh)
