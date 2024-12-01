@@ -75,8 +75,12 @@ def join_objs():
     return base
 
 
-def import_obj(input_path):
-    bpy.ops.import_scene.gltf(filepath=str(input_path))
+def import_mesh(input_path: pathlib.Path):
+    if input_path.suffix == ".glb":
+        bpy.ops.import_scene.gltf(filepath=str(input_path))
+    else:
+        bpy.ops.import_scene.obj(filepath=str(input_path))
+
     obj = join_objs()
     bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
     normalize_obj(obj)
@@ -179,13 +183,13 @@ def add_hdri(hdri_path):
 if __name__ == "__main__":
     DATASET_OUTPUT_PATH.mkdir(exist_ok=True)
 
-    valid_extensions = [".glb"]
+    valid_extensions = [".glb", ".obj"]
     for input_idx, input_path in enumerate(DATASET_INPUT_PATH.iterdir()):
         if input_path.suffix.lower() not in valid_extensions:
             print(f"Skipped {input_path.name}")
             continue
 
         setup_scene()
-        import_obj(input_path)
+        import_mesh(input_path)
         render_multiview(input_idx)
         scene.clear()
