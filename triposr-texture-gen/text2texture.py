@@ -29,6 +29,9 @@ def process_tripo_mesh(mesh):
 
 
 def raycast_mesh(tmesh, camera_dist=2.8, rot_x_rad=0.0, rot_y_rad=0.0, fov_deg=30, size=512):
+    """Ensure size is a multiple of 8"""
+    size = ((size + 7) // 8) * 8
+    
     if rot_x_rad or rot_y_rad:
         rot = o3d.geometry.TriangleMesh.get_rotation_matrix_from_xyz((rot_x_rad, rot_y_rad, 0.0))
         new_mesh = tmesh.clone()
@@ -54,9 +57,9 @@ def raycast_mesh(tmesh, camera_dist=2.8, rot_x_rad=0.0, rot_y_rad=0.0, fov_deg=3
     }
 
     hits = result['t_hit'].numpy()
-    hits[hits == np.inf] = 0 # REVIEW: can skip for later?
+    hits[hits == np.inf] = 0
 
-    min1 = np.unique(hits)[1] # min except for 0, mayber better way?
+    min1 = np.unique(hits)[1]
     hits2 = (((np.max(hits) - hits) / (np.max(hits) - min1)).clip(0, 1) * 255).astype('u1')
     hits2[hits == 0] = 0
 
@@ -161,51 +164,68 @@ def compute_texture(tmesh, ans_uvs, ans_prim_ids, depth, point_colors, size=512)
         raise
 
 
-def compute_raycast_texture(
-    tmesh, raycast_result, rgb_imdata, slice_sets, tex_imdata, size=512, mask=None, erode=False,
-):
-    print()
-    print('generating texture...')
-    start_time = time.time()
-
-    # Clear CUDA cache if available
+def clear_gpu_memory():
+    """Utility function to clear GPU memory"""
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
         gc.collect()
 
+def compute_raycast_texture(
+    tmesh, raycast_result, rgb_imdata, slice_sets, tex_imdata, size=512, mask=None, erode=True,
+):
+    print('\ngenerating texture...')
+    start_time = time.time()
+    
+    # Ensure dimensions match
+    rgb_shape = rgb_imdata.shape[:2]
+    raycast_shape = raycast_result['depth'].shape
+    
+    if rgb_shape != raycast_shape:
+        print(f"Resizing RGB image to match raycast dimensions: {raycast_shape}")
+        # Convert RGB image to PIL for resize
+        rgb_img = Image.fromarray(rgb_imdata)
+        # Resize to match raycast dimensions - note the reverse order for PIL
+        rgb_img = rgb_img.resize((raycast_shape[1], raycast_shape[0]), Image.Resampling.LANCZOS)
+        rgb_imdata = np.array(rgb_img)
+        print(f"New RGB shape: {rgb_imdata.shape[:2]}")
+    
+    clear_gpu_memory()
+    
     non_inf_rays = raycast_result['primitive_ids'] != 0xffff_ffff
     mask = (mask & non_inf_rays) if mask is not None else non_inf_rays
     if erode:
         mask = scipy.ndimage.binary_erosion(mask, np.ones((4, 4)))
 
     def get_slices(arr, slices):
-        return np.concatenate(
-            [arr[sy, sx] for sy, sx in slices],
-            axis=1,
-        )
+        try:
+            return np.concatenate(
+                [arr[sy, sx] for sy, sx in slices],
+                axis=1,
+            )
+        except ValueError as e:
+            print(f"Error in get_slices: Array shape {arr.shape}")
+            print(f"Slices: {slices}")
+            raise
 
     layers = []
     try:
         for i, slices in enumerate(slice_sets):
             print(f'Processing layer {i+1}/{len(slice_sets)}...')
+            clear_gpu_memory()
+            
             slice_mask = get_slices(mask, slices).flatten()
-
             uvs = get_slices(raycast_result['primitive_uvs'], slices).reshape(-1, 2)[slice_mask]
             ids = get_slices(raycast_result['primitive_ids'], slices).flatten()[slice_mask]
             rgb = get_slices(rgb_imdata, slices).reshape(-1, 3)[slice_mask]
             depth = get_slices(raycast_result['depth'], slices).flatten()[slice_mask]
-
-            # Free memory after each slice
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-                gc.collect()
 
             layer = compute_texture(tmesh, uvs, ids, depth, rgb, size)
             layers.append(layer)
             print(f'Layer {i+1} complete')
 
         print('Blending layers...')
-        # alpha-weighted average of texture layers (alpha is derived from depth)
+        clear_gpu_memory()
+        
         blended = np.average(
             [layer[..., :3] for layer in layers],
             axis=0,
@@ -224,7 +244,11 @@ def compute_raycast_texture(
 
     except Exception as e:
         print(f"Error during texture generation: {str(e)}")
+        print(f"Raycast result shape: {raycast_result['depth'].shape}")
+        print(f"RGB image shape: {rgb_imdata.shape}")
         raise
+    finally:
+        clear_gpu_memory()
 
 
 def set_tmesh_tex(tmesh, tex_imdata):
@@ -284,23 +308,32 @@ def text2texture(
     ]
 
     print()
-    print('>', *(shlex.quote(arg) for arg in depth_paint_args))
-    if platform.system() == "Windows":
-        enviroment = os.environ.copy()
-        enviroment['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
-        subprocess.run(
-            [sys.executable, *depth_paint_args],
-            check=True,
-            env=enviroment
-        )
-    else:
-        subprocess.run(
-            [sys.executable, *depth_paint_args],
-            check=True,
-            env={'PYTORCH_ENABLE_MPS_FALLBACK': '1'},
-        )
+# Set up environment variables for all platforms
+    env = os.environ.copy()
+    env['PYTORCH_ENABLE_MPS_FALLBACK'] = '1'
+    
+    # Add CUDA specific environment variables
+    if torch.cuda.is_available():
+        env['CUDA_VISIBLE_DEVICES'] = '0'
+        env['PYTORCH_CUDA_ALLOC_CONF'] = 'max_split_size_mb:512'
 
-    with subprocess.Popen(['bash', '-c', 'while true; do echo -n .; sleep 0.5; done']) as proc:
+    print('>', *(shlex.quote(arg) for arg in depth_paint_args))
+    
+    # Run the depth painting process with proper environment
+    subprocess.run(
+        [sys.executable, *depth_paint_args],
+        check=True,
+        env=env
+    )
+
+    # Show progress indicator during texture computation
+    progress_cmd = 'while true; do echo -n .; sleep 0.5; done'
+    if platform.system() == "Windows":
+        progress_proc = subprocess.Popen(['cmd', '/c', progress_cmd], shell=True)
+    else:
+        progress_proc = subprocess.Popen(['bash', '-c', progress_cmd])
+
+    try:
         tex_imdata = compute_raycast_texture(
             tmesh,
             raycast,
@@ -310,7 +343,8 @@ def text2texture(
             size,
             erode=True,
         )
-        proc.kill()
+    finally:
+        progress_proc.terminate()
 
     # Interpolate any remaining missing texture regions as a fallback
     tex_imdata = interpolate_pixels(tex_imdata, np.all(tex_imdata == missing_tex_rgb, axis=-1))

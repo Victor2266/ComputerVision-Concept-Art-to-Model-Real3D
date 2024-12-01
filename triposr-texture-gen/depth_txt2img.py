@@ -3,6 +3,7 @@ import sys
 import signal
 from contextlib import contextmanager
 import threading
+import os
 
 from diffusers import ControlNetModel, StableDiffusionControlNetPipeline, UniPCMultistepScheduler
 import numpy as np
@@ -24,11 +25,18 @@ def time_limit(seconds):
     finally:
         signal.alarm(0)
 
-_DEFAULT_DEVICE = (
-    'cuda' if torch.cuda.is_available()
-    else 'mps' if torch.backends.mps.is_available()
-    else 'cpu'
-)
+def get_optimal_device():
+    if torch.cuda.is_available():
+        os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+        # Disable TF32 for better compatibility
+        torch.backends.cuda.matmul.allow_tf32 = False
+        torch.backends.cudnn.allow_tf32 = False
+        return 'cuda'
+    elif torch.backends.mps.is_available():
+        return 'mps'
+    return 'cpu'
+
+_DEFAULT_DEVICE = get_optimal_device()
 
 class TextToObjectImage:
     def __init__(
@@ -37,17 +45,13 @@ class TextToObjectImage:
         model='Lykon/dreamshaper-8',
         cn_model='lllyasviel/control_v11p_sd15_normalbae',
     ):
-        # Clear CUDA cache
-        if torch.cuda.is_available():
+        self.device = device
+        print(f"Initializing on device: {device}")
+        
+        if device == 'cuda':
             torch.cuda.empty_cache()
             gc.collect()
         
-        # Force model to use less memory
-        torch.backends.cudnn.benchmark = False
-        if device == "cuda":
-            torch.cuda.set_per_process_memory_fraction(0.7)
-        
-        # Adjust dtype based on device
         dtype = torch.float16 if device == 'cuda' else torch.float32
         
         print(f"Loading ControlNet model from {cn_model}...")
@@ -69,40 +73,62 @@ class TextToObjectImage:
             requires_safety_checker=False
         )
         
-        # Memory optimizations
+        # Move to device after full initialization
+        self.pipe = self.pipe.to(device)
+        
         if device == "cuda":
-            print("Enabling memory optimizations...")
-            self.pipe.enable_attention_slicing(slice_size=1)
+            self.pipe.enable_attention_slicing(slice_size="auto")
             self.pipe.enable_vae_slicing()
-            self.pipe = self.pipe.to(device)
-            
-            # Force garbage collection
             torch.cuda.empty_cache()
             gc.collect()
         
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
         print("Setup complete!")
 
-    def generate(self, desc: str, steps: int, control_image: Image):
+    def resize_to_valid_dimensions(self, image: Image.Image, max_size: int = 768) -> Image.Image:
+        """Resize image to valid dimensions for Stable Diffusion while maintaining aspect ratio"""
+        # Get original dimensions
+        width, height = image.size
+        
+        # Calculate aspect ratio
+        aspect_ratio = width / height
+        
+        # Calculate new dimensions
+        if width > height:
+            new_width = min(max_size, width)
+            new_height = int(new_width / aspect_ratio)
+        else:
+            new_height = min(max_size, height)
+            new_width = int(new_height * aspect_ratio)
+            
+        # Ensure dimensions are multiples of 8
+        new_width = ((new_width + 7) // 8) * 8
+        new_height = ((new_height + 7) // 8) * 8
+        
+        return image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+
+    def generate(self, desc: str, steps: int, control_image: Image.Image):
         print(f"\nStarting image generation with {steps} steps...")
-        print("Using prompt:", desc)
         
-        # Resize image if too large
-        max_size = 512
-        if max(control_image.size) > max_size:
-            ratio = max_size / max(control_image.size)
-            new_size = tuple(int(dim * ratio) for dim in control_image.size)
-            control_image = control_image.resize(new_size, Image.Resampling.LANCZOS)
+        # Clean prompt
+        prompt = desc.split('--')[0].strip()
+        prompt = prompt[:77]
+        print("Using prompt:", prompt)
         
-        # Clear memory before generation
-        if torch.cuda.is_available():
+        # Store original dimensions
+        original_size = control_image.size
+        print(f"Original image size: {original_size}")
+        
+        # Resize for processing
+        control_image = self.resize_to_valid_dimensions(control_image)
+        print(f"Processing at size: {control_image.size}")
+        
+        if self.device == 'cuda':
             torch.cuda.empty_cache()
             gc.collect()
 
-        prompt = f'{desc}, front and back view, 180, reverse, 3D rendering, high quality'
-        
         try:
-            with time_limit(300):  # 5 minute timeout
+            with time_limit(300):
                 result = self.pipe(
                     prompt=prompt,
                     negative_prompt='lighting, shadows, grid, dark, mesh',
@@ -110,30 +136,30 @@ class TextToObjectImage:
                     num_images_per_prompt=1,
                     image=control_image,
                     guidance_scale=7.5,
-                    width=control_image.width,
-                    height=control_image.height
                 )
                 print("\nGeneration complete!")
-                return result.images[0]
+                # Resize back to original dimensions
+                result_image = result.images[0].resize(original_size, Image.Resampling.LANCZOS)
+                return result_image
                 
         except TimeoutException:
             print("\nGeneration timed out! Trying again with reduced settings...")
-            # Try again with reduced settings
-            if torch.cuda.is_available():
+            if self.device == 'cuda':
                 torch.cuda.empty_cache()
                 gc.collect()
             
-            self.pipe.enable_attention_slicing(slice_size=1)
-            return self.pipe(
+            reduced_image = self.resize_to_valid_dimensions(control_image, max_size=512)
+            result = self.pipe(
                 prompt=prompt,
                 negative_prompt='lighting, shadows, grid, dark, mesh',
-                num_inference_steps=max(steps // 2, 6),  # Reduce steps but keep minimum of 6
+                num_inference_steps=max(steps // 2, 6),
                 num_images_per_prompt=1,
-                image=control_image,
-                guidance_scale=7.0,  # Reduced guidance scale
-                width=min(control_image.width, 384),  # Reduced size
-                height=min(control_image.height, 384)
-            ).images[0]
+                image=reduced_image,
+                guidance_scale=7.0,
+            )
+            # Resize back to original dimensions
+            result_image = result.images[0].resize(original_size, Image.Resampling.LANCZOS)
+            return result_image
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -154,10 +180,6 @@ if __name__ == '__main__':
     )
     args = parser.parse_args()
 
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-        gc.collect()
-
     print("\nInitializing TextToObjectImage...")
     t2i = TextToObjectImage(args.device, args.image_model)
     
@@ -169,4 +191,3 @@ if __name__ == '__main__':
     print(f"Saving generated image to {args.output_path}...")
     result_image.save(args.output_path)
     print("Done!")
-    
