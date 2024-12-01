@@ -76,6 +76,9 @@ and put it into `./checkpoint/<model_name>.ckpt`.
 ### (Google Collab Option)
 To change the model it uses, you have to edit this cell in the note book to change the url to the model you want:
 ![image](https://github.com/user-attachments/assets/11f2a66c-e76e-431e-bb7d-8ed2f42cfaad)
+You also have to change the run script to the path of the model you want to use:
+![image](https://github.com/user-attachments/assets/1d887d84-ebf2-4db7-8d6a-bb0937cc8ac7)
+
 
 ## Run The Demo:
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
