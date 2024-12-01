@@ -59,7 +59,7 @@ Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive
 
 Then run each cell in order to set up the environment.
 
-There is a cell which downloads [REAL3D's MODEL, CHANGE IT LATER TO OURS] by default.
+There is a cell which downloads our model by default, it can be changed to other models.
 
 
 ## After Setting up The Environment:
@@ -69,13 +69,17 @@ Download the a model weight:
 - [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
 - [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
 - [Our Model Weight Fine Tuned on Fantasy Sword Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
-- [Our Model Weight Fine Tuned on Food Items](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+- [Our Model Weight Fine Tuned on Food Items](https://huggingface.co/Victor2266/RealFruit3D/resolve/main/new_fruit_model_30k.ckpt?download=true)
 
 and put it into `./checkpoint/<model_name>.ckpt`.
 
 ### (Google Collab Option)
 To change the model it uses, you have to edit this cell in the note book to change the url to the model you want:
-![image](https://github.com/user-attachments/assets/11f2a66c-e76e-431e-bb7d-8ed2f42cfaad)
+![image](https://github.com/user-attachments/assets/ff358c76-2b9e-4481-8285-0b688341e6bf)
+
+You also have to change the run script to the path of the model you want to use:
+![image](https://github.com/user-attachments/assets/1d887d84-ebf2-4db7-8d6a-bb0937cc8ac7)
+
 
 ## Run The Demo:
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
