@@ -59,7 +59,7 @@ Visit this Google Colab Notebook: [Here](https://colab.research.google.com/drive
 
 Then run each cell in order to set up the environment.
 
-There is a cell which downloads [REAL3D's MODEL, CHANGE IT LATER TO OURS] by default.
+There is a cell which downloads our model by default, it can be changed to other models.
 
 
 ## After Setting up The Environment:
