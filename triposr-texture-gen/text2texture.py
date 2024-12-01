@@ -157,7 +157,8 @@ def compute_raycast_texture(
     tmesh, raycast_result, rgb_imdata, slice_sets, tex_imdata, size=512, mask=None, erode=False,
 ):
     print()
-    print('generating texture')
+    print('generating texture...')
+    start_time = time.time()
 
     non_inf_rays = raycast_result['primitive_ids'] != 0xffff_ffff
     mask = (mask & non_inf_rays) if mask is not None else non_inf_rays
@@ -165,14 +166,14 @@ def compute_raycast_texture(
         mask = scipy.ndimage.binary_erosion(mask, np.ones((4, 4)))
 
     def get_slices(arr, slices):
-        # TODO assumes consistent y-size
         return np.concatenate(
             [arr[sy, sx] for sy, sx in slices],
             axis=1,
         )
 
     layers = []
-    for slices in slice_sets:
+    for i, slices in enumerate(slice_sets):
+        print(f'Processing layer {i+1}/{len(slice_sets)}...')
         slice_mask = get_slices(mask, slices).flatten()
 
         uvs = get_slices(raycast_result['primitive_uvs'], slices).reshape(-1, 2)[slice_mask]
@@ -181,7 +182,9 @@ def compute_raycast_texture(
         depth = get_slices(raycast_result['depth'], slices).flatten()[slice_mask]
 
         layers.append(compute_texture(tmesh, uvs, ids, depth, rgb, size))
+        print(f'Layer {i+1} complete')
 
+    print('Blending layers...')
     # alpha-weighted average of texture layers (alpha is derived from depth)
     blended = np.average(
         [layer[..., :3] for layer in layers],
@@ -195,6 +198,8 @@ def compute_raycast_texture(
     missing_tex = np.all([layer[..., 3] == 0 for layer in layers], axis=0)
     blended[missing_tex] = tex_imdata[missing_tex]
 
+    elapsed_time = time.time() - start_time
+    print(f'Texture generation complete! (took {elapsed_time:.1f} seconds)')
     return blended
 
 
