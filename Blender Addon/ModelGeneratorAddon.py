@@ -16,14 +16,21 @@ from bpy.props import StringProperty, IntProperty, BoolProperty, EnumProperty
 from bpy.types import Panel, Operator
 
 def convert_windows_to_wsl_path(windows_path):
-    if windows_path.startswith('\\\\wsl$'):
-        wsl_path = windows_path.replace('\\\\wsl$', '')
-        wsl_path = wsl_path.replace('/Ubuntu-20.04', '')
-    else:
+    # Handle WSL paths
+    if '\\wsl.localhost\\' in windows_path:
+        # Extract the path after the distribution name
+        parts = windows_path.split('\\wsl.localhost\\')[1].split('\\')
+        distribution = parts[0]  # e.g., 'Ubuntu-20.04'
+        rest_of_path = '/'.join(parts[1:])  # Join the rest with forward slashes
+        wsl_path = f'/{rest_of_path}'
+        return wsl_path
+    # Handle regular Windows paths
+    elif ':' in windows_path:  # Check if it's a Windows drive path
         drive_letter = windows_path[0].lower()
-        wsl_path = f'/mnt/{drive_letter}/{windows_path[3:]}'
-    
-    return wsl_path.replace('\\', '/')
+        path_part = windows_path[3:] if windows_path[2] == '\\' else windows_path[2:]
+        wsl_path = f'/mnt/{drive_letter}/{path_part}'
+        return wsl_path.replace('\\', '/')
+    return windows_path.replace('\\', '/')
 
 class CMG_PT_main_panel(Panel):
     bl_label = "Custom Model Generator"

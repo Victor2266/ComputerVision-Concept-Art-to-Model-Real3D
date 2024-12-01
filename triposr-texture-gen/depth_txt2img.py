@@ -6,13 +6,11 @@ import numpy as np
 from PIL import Image
 import torch
 
-# REVIEW
 _DEFAULT_DEVICE = (
     'cuda' if torch.cuda.is_available()
     else 'mps' if torch.backends.mps.is_available()
     else 'cpu'
 )
-
 
 class TextToObjectImage:
     def __init__(
@@ -21,10 +19,20 @@ class TextToObjectImage:
         model='Lykon/dreamshaper-8',
         cn_model='lllyasviel/control_v11p_sd15_normalbae',
     ):
-        controlnet = ControlNetModel.from_pretrained(cn_model, torch_dtype=torch.float16, variant='fp16')
+        # Adjust dtype based on device
+        dtype = torch.float16 if device == 'cuda' else torch.float32
+        
+        controlnet = ControlNetModel.from_pretrained(
+            cn_model, 
+            torch_dtype=dtype,
+            variant='fp16' if device == 'cuda' else None
+        )
 
         self.pipe = StableDiffusionControlNetPipeline.from_pretrained(
-            model, controlnet=controlnet, torch_dtype=torch.float16, variant='fp16',
+            model, 
+            controlnet=controlnet, 
+            torch_dtype=dtype,
+            variant='fp16' if device == 'cuda' else None,
             safety_checker=None,
         )
         self.pipe.scheduler = UniPCMultistepScheduler.from_config(self.pipe.scheduler.config)
@@ -41,7 +49,6 @@ class TextToObjectImage:
             height=control_image.height,
         ).images[0]
 
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('desc', help='Short description of desired model appearance')
@@ -49,7 +56,7 @@ if __name__ == '__main__':
     parser.add_argument('output_path', help='Path for generated image')
     parser.add_argument(
         '--image-model',
-        help='SD 1.5-based model for texture image gen',
+        help='SD 1.5-based model for texture gen',
         default='Lykon/dreamshaper-8',
     )
     parser.add_argument('--steps', type=int, default=12)
