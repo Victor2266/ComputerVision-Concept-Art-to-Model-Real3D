@@ -95,7 +95,7 @@ Use `chmod +x run.sh` to add the “x” permission.
 A good input image follows 3 criteria: It should have a clear subject that isn't smaller than 100 pixels, the subject should not be occluded by other objects or cutoff from the image, and extremely asynetrically objects have issues.
 
 ### **If you want to modify the parameters for run.py:**
-
+[these are the parameters](https://github.com/Victor2266/ComputerVision-Concept-Art-to-Model-Real3D/blob/4e2323a7d527d56bd7fa0e62f0f24a59a8137bca/parameters.md)
 
 
 ## How To Do Training:
