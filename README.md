@@ -85,6 +85,7 @@ To change the model it uses, you have to edit this cell in the note book to chan
 You also have to change the run script to the path of the model you want to use:
 ![image](https://github.com/user-attachments/assets/1d887d84-ebf2-4db7-8d6a-bb0937cc8ac7)
 
+Otherwise, just run every cell in order, it will take an input image, generate a mesh for it, then clean and remesh that output and generate a new texture for it using stable diffusion. At the end, it will output rough renderings of a few angles of the final model.
 
 ## Run The Mesh Generation Demo (Locally):
 Use `./run.sh` and modify your image path and foreground segmentation config accordingly. Tune the chunk size to fit your GPU.
