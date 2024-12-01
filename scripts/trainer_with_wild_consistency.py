@@ -15,7 +15,7 @@ from scripts.validator import transform_clip
 import clip
 
 logger = logging.getLogger(__name__)
-EPOCH_LENGTH = 3000 #10000
+EPOCH_LENGTH = 1000 #10000
 
 
 def train_epoch_wild_with_consistency(config, loader, loader_sv, model, optimizer, scheduler, scaler,
