@@ -9,11 +9,14 @@ import platform
 import shlex
 import subprocess
 import sys
+import time  # Added missing import
+import gc    # Added for memory management
 
 import numpy as np
 import open3d as o3d
 import scipy
 from PIL import Image
+import torch   # Added for CUDA memory management
 
 
 def process_tripo_mesh(mesh):
@@ -119,38 +122,43 @@ def interpolate_pixels(imdata, missing_mask, known_mask=None):
 # - depth: [N]
 # - point_colors : [N, 3]
 def compute_texture(tmesh, ans_uvs, ans_prim_ids, depth, point_colors, size=512):
-    imdata = np.zeros((size, size, 4), 'u1')
+    try:
+        imdata = np.zeros((size, size, 4), 'u1')
 
-    # prepend 1 - uv1 - uv2 to make [N, 3] array
-    ans_uvs_3 = np.insert(ans_uvs, 0, (1 - np.sum(ans_uvs, 1)), axis=1)
+        # prepend 1 - uv1 - uv2 to make [N, 3] array
+        ans_uvs_3 = np.insert(ans_uvs, 0, (1 - np.sum(ans_uvs, 1)), axis=1)
 
-    # Index per-triangle vertex x UVs on triangle IDs from fit to get [N, 3, 2] array
-    triuvs = tmesh.triangle.texture_uvs.numpy()[ans_prim_ids]
+        # Index per-triangle vertex x UVs on triangle IDs from fit to get [N, 3, 2] array
+        triuvs = tmesh.triangle.texture_uvs.numpy()[ans_prim_ids]
 
-    # Dot each UV with each triangle UV -> [N, 2] array
-    uvs = np.einsum('ij,ijk->ik', ans_uvs_3, triuvs)
+        # Dot each UV with each triangle UV -> [N, 2] array
+        uvs = np.einsum('ij,ijk->ik', ans_uvs_3, triuvs)
 
-    imxy = (uvs * size).astype('u2') # assume size <= max(uint16)
+        imxy = (uvs * size).astype('u2') # assume size <= max(uint16)
 
-    # interpolate missing pixels...
-    interp = scipy.interpolate.LinearNDInterpolator(
-        imxy,
-        np.concatenate((point_colors, depth[:, None]), axis=-1).astype('f4') / 255,
-        1,
-    )
-    all_xs_ys = np.indices((size, size)).reshape(2, -1) # [2, N] array
-    all_points = all_xs_ys.transpose(1, 0) # [N, 2]
+        # interpolate missing pixels...
+        interp = scipy.interpolate.LinearNDInterpolator(
+            imxy,
+            np.concatenate((point_colors, depth[:, None]), axis=-1).astype('f4') / 255,
+            1,
+        )
+        all_xs_ys = np.indices((size, size)).reshape(2, -1) # [2, N] array
+        all_points = all_xs_ys.transpose(1, 0) # [N, 2]
 
-    # ...and mask out points too far from reference points
-    kdtree = scipy.spatial.KDTree(imxy)
-    dists = kdtree.query(all_points)[0]
+        # ...and mask out points too far from reference points
+        kdtree = scipy.spatial.KDTree(imxy)
+        dists = kdtree.query(all_points)[0]
 
-    xs, ys = all_xs_ys[:, dists < 2]
+        xs, ys = all_xs_ys[:, dists < 2]
 
-    colors = interp(xs, ys)
-    imdata[(size - 1) - ys, xs] = colors * 255
+        colors = interp(xs, ys)
+        imdata[(size - 1) - ys, xs] = colors * 255
 
-    return imdata
+        return imdata
+
+    except Exception as e:
+        print(f"Error in compute_texture: {str(e)}")
+        raise
 
 
 def compute_raycast_texture(
@@ -159,6 +167,11 @@ def compute_raycast_texture(
     print()
     print('generating texture...')
     start_time = time.time()
+
+    # Clear CUDA cache if available
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        gc.collect()
 
     non_inf_rays = raycast_result['primitive_ids'] != 0xffff_ffff
     mask = (mask & non_inf_rays) if mask is not None else non_inf_rays
@@ -172,35 +185,46 @@ def compute_raycast_texture(
         )
 
     layers = []
-    for i, slices in enumerate(slice_sets):
-        print(f'Processing layer {i+1}/{len(slice_sets)}...')
-        slice_mask = get_slices(mask, slices).flatten()
+    try:
+        for i, slices in enumerate(slice_sets):
+            print(f'Processing layer {i+1}/{len(slice_sets)}...')
+            slice_mask = get_slices(mask, slices).flatten()
 
-        uvs = get_slices(raycast_result['primitive_uvs'], slices).reshape(-1, 2)[slice_mask]
-        ids = get_slices(raycast_result['primitive_ids'], slices).flatten()[slice_mask]
-        rgb = get_slices(rgb_imdata, slices).reshape(-1, 3)[slice_mask]
-        depth = get_slices(raycast_result['depth'], slices).flatten()[slice_mask]
+            uvs = get_slices(raycast_result['primitive_uvs'], slices).reshape(-1, 2)[slice_mask]
+            ids = get_slices(raycast_result['primitive_ids'], slices).flatten()[slice_mask]
+            rgb = get_slices(rgb_imdata, slices).reshape(-1, 3)[slice_mask]
+            depth = get_slices(raycast_result['depth'], slices).flatten()[slice_mask]
 
-        layers.append(compute_texture(tmesh, uvs, ids, depth, rgb, size))
-        print(f'Layer {i+1} complete')
+            # Free memory after each slice
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+                gc.collect()
 
-    print('Blending layers...')
-    # alpha-weighted average of texture layers (alpha is derived from depth)
-    blended = np.average(
-        [layer[..., :3] for layer in layers],
-        axis=0,
-        weights=[
-            np.clip(layer[..., [3]].repeat(3, axis=-1).astype('f4') ** 4, 1, None)
-            for layer in layers
-        ],
-    ).astype('u1')
+            layer = compute_texture(tmesh, uvs, ids, depth, rgb, size)
+            layers.append(layer)
+            print(f'Layer {i+1} complete')
 
-    missing_tex = np.all([layer[..., 3] == 0 for layer in layers], axis=0)
-    blended[missing_tex] = tex_imdata[missing_tex]
+        print('Blending layers...')
+        # alpha-weighted average of texture layers (alpha is derived from depth)
+        blended = np.average(
+            [layer[..., :3] for layer in layers],
+            axis=0,
+            weights=[
+                np.clip(layer[..., [3]].repeat(3, axis=-1).astype('f4') ** 4, 1, None)
+                for layer in layers
+            ],
+        ).astype('u1')
 
-    elapsed_time = time.time() - start_time
-    print(f'Texture generation complete! (took {elapsed_time:.1f} seconds)')
-    return blended
+        missing_tex = np.all([layer[..., 3] == 0 for layer in layers], axis=0)
+        blended[missing_tex] = tex_imdata[missing_tex]
+
+        elapsed_time = time.time() - start_time
+        print(f'Texture generation complete! (took {elapsed_time:.1f} seconds)')
+        return blended
+
+    except Exception as e:
+        print(f"Error during texture generation: {str(e)}")
+        raise
 
 
 def set_tmesh_tex(tmesh, tex_imdata):
