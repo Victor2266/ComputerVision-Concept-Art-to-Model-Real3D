@@ -69,7 +69,7 @@ Download the a model weight:
 - [model weight from TripoSR, fine tuned on synthetic data to fix some issues](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both.ckpt?download=true)
 - [model weights from Real3d trained on Multi-View and Single-View Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true)
 - [Our Model Weight Fine Tuned on Fantasy Sword Images](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
-- [Our Model Weight Fine Tuned on Food Items](https://huggingface.co/hwjiang/Real3D/resolve/main/model_both_trained_v1.ckpt?download=true) (not uploaded yet)
+- [Our Model Weight Fine Tuned on Food Items](https://huggingface.co/Victor2266/RealFruit3D/resolve/main/new_fruit_model_30k.ckpt?download=true)
 
 and put it into `./checkpoint/<model_name>.ckpt`.
 
