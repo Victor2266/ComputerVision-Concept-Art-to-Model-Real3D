@@ -1,3 +1,4 @@
+import argparse
 import json
 import math
 import pathlib
@@ -58,8 +59,8 @@ def add_cam(orbit_distance, elevation_angle, azimuth_angle):
     )
 
 
-def setup_scene():
-    add_hdri(str(DIR_PATH / "sunrise.hdr"))
+def setup_scene(light_name):
+    add_hdri(str(DIR_PATH / "hdris" / f"{light_name}.hdr"))
 
 
 def join_objs():
@@ -180,8 +181,21 @@ def add_hdri(hdri_path):
     links.new(background.outputs["Background"], output.inputs["Surface"])
 
 
+def get_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--lighting",
+        type=str,
+        choices=["clouds", "garden", "quarry", "studio", "sunrise"],
+        default="garden",
+        help="HDRI lighting for the scene",
+    )
+    return parser.parse_args()
+
+
 if __name__ == "__main__":
     DATASET_OUTPUT_PATH.mkdir(exist_ok=True)
+    args = get_args()
 
     valid_extensions = [".glb", ".obj"]
     for input_idx, input_path in enumerate(DATASET_INPUT_PATH.iterdir()):
@@ -189,7 +203,7 @@ if __name__ == "__main__":
             print(f"Skipped {input_path.name}")
             continue
 
-        setup_scene()
+        setup_scene(args.lighting)
         import_mesh(input_path)
         render_multiview(input_idx)
         scene.clear()
